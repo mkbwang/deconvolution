@@ -1,0 +1,22 @@
+Package: deconvolution
+Title: Analysis of Microbiome Differential Abundance by Pooling Tobit Models
+Version: 0.0.1
+Authors@R: 
+    c(person(given="Mukai", family="Wang", email="wangmk@umich.edu", role = c("aut", "cre"),
+           comment = c(ORCID = "0000-0002-1413-1904")))
+Description: Deconvolution for prediction of continuous values.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports:
+    dplyr (>= 1.1.4),
+    rlang (>= 1.1.4)
+Suggests: 
+    rmarkdown (>= 2.11),
+    knitr (>= 1.37),
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
+Depends: 
+    R (>= 4.4.0)
+LazyData: false
