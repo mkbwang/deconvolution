@@ -23,7 +23,7 @@ l2_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
 
     # penalty based on differences between ages
     labels_mat <- matrix(labels, nrow=length(labels), ncol=length(labels))
-    inverse_abs_distance <- penalty * ngenes / (abs(labels_mat - t(labels_mat)) + 1)
+    inverse_abs_distance <- penalty / (abs(labels_mat - t(labels_mat)) + 1)
     penalty_mat <- -inverse_abs_distance
     diag(penalty_mat) <- diag(penalty_mat) + rowSums(inverse_abs_distance)
 
@@ -84,7 +84,7 @@ l1_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
 
     # penalty based on differences between ages
     labels_mat <- matrix(labels, nrow=length(labels), ncol=length(labels))
-    inverse_abs_distance <- penalty * ngenes / (abs(labels_mat - t(labels_mat)) + 1)
+    inverse_abs_distance <- penalty / (abs(labels_mat - t(labels_mat)) + 1)
     penalty_mat <- -inverse_abs_distance
     diag(penalty_mat) <- diag(penalty_mat) + rowSums(inverse_abs_distance)
 
