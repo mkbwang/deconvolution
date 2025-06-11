@@ -4,7 +4,7 @@
 \alias{viz_weights}
 \title{Visualize the deconvolution weights}
 \usage{
-viz_weights(labels, weights, truth, exclude = NULL, title = NULL)
+viz_weights(labels, weights, truth = NULL, exclude = NULL, title = NULL)
 }
 \arguments{
 \item{labels}{labels of training data}

@@ -51,7 +51,7 @@ viz_predict <- function(truth, predicted, diagonal=TRUE, title=NULL){
 #' @importFrom dplyr group_by %>% arrange summarise
 #' @importFrom ggplot2 ggplot geom_line geom_point scale_x_continuous geom_vline xlab ylab ggtitle theme element_text
 #' @export
-viz_weights <- function(labels, weights, truth, exclude=NULL, title=NULL){
+viz_weights <- function(labels, weights, truth=NULL, exclude=NULL, title=NULL){
 
     weights_df <- data.frame(Labels = labels,
                              Weights= weights) %>%
@@ -66,17 +66,22 @@ viz_weights <- function(labels, weights, truth, exclude=NULL, title=NULL){
     starting_point <- weights_df %>% group_by(.data$Labels) %>%
         summarise(index=min(.data$ID))
 
-    # highlight ranges of labels with the same value as truth
-    id_ranges <- weights_df$ID[weights_df$Labels == truth]
 
     myplot <- ggplot(weights_df, aes(x=.data$ID, y=.data$Weights)) +
         geom_line(alpha=0.6) + geom_point(size=1.4, alpha=0.6) +
         scale_x_continuous(breaks=starting_point$index,
                            labels=as.character(starting_point$Labels)) +
-        geom_vline(xintercept=min(id_ranges)-0.5, linetype="dashed", color="blue")+
-        geom_vline(xintercept=max(id_ranges)+0.5, linetype="dashed", color="blue")+
         xlab("Age") + ylab("Weights")+
         theme(text=element_text(size=10))
+
+    if (!is.null(truth)){
+
+        # highlight ranges of labels with the same value as truth
+        id_ranges <- weights_df$ID[weights_df$Labels == truth]
+        myplot <- myplot + geom_vline(xintercept=min(id_ranges)-0.5, linetype="dashed", color="blue")+
+            geom_vline(xintercept=max(id_ranges)+0.5, linetype="dashed", color="blue")
+
+    }
 
     if(!is.null(title)){
         myplot <- myplot + ggtitle(title)
