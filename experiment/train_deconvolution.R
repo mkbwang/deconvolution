@@ -57,7 +57,7 @@ gene_expressions_subset <- gene_expressions[ages >=2 & ages <= 23, marker_genes]
 
 # first fit deconvolution among the samples with no penalties
 
-fit_deconv <- function(predictors, true_labels, penalty=0){
+fit_deconv <- function(predictors, true_labels, p0=0, p1=0){
 
 
     estimated_age <-rep(0, length(true_labels))
@@ -73,7 +73,7 @@ fit_deconv <- function(predictors, true_labels, penalty=0){
 
         l2_result <- deconvolution(X=predictors_train, Y=predictors_test,
                                    labels=ages_train, type="l2",
-                                   penalty=penalty)
+                                   p0=p0, p1=p1)
 
         estimated_weights[j, -j] <- l2_result$weights
         estimated_age[j] <- l2_result$estim
@@ -81,8 +81,8 @@ fit_deconv <- function(predictors, true_labels, penalty=0){
     }
 
     mae <- mean(abs(estimated_age - true_labels))
-    plot_title_1 <- sprintf("Penalty = %d; Mean Absolute Error=%.3f",
-                            penalty, mae)
+    plot_title_1 <- sprintf("P0 = %d; P1= %d, Mean Absolute Error=%.3f",
+                            p0, p1, mae)
 
     prediction_plot <- viz_predict(truth=true_labels, predicted=estimated_age,
                                    diagonal=T, title=plot_title_1)
@@ -92,8 +92,8 @@ fit_deconv <- function(predictors, true_labels, penalty=0){
 
         true_age <- ages_subset[j]
         estimate <- round(estimated_age[j], digits=3)
-        plot_title_2 <- sprintf("Truth=%d; Estimated=%.3f; Penalty=%d",
-                                true_age, estimate, penalty)
+        plot_title_2 <- sprintf("Truth=%d; Estimated=%.3f; P0 = %d; P1= %d",
+                                true_age, estimate, p0, p1)
         weight_plot <- viz_weights(labels=ages_subset, weights=estimated_weights[j, ],
                                    truth=ages_subset[j], exclude=j, title=plot_title_2)
         weight_plot_list[[j]] <- weight_plot
@@ -110,64 +110,63 @@ fit_deconv <- function(predictors, true_labels, penalty=0){
 }
 
 
-outcome_penalty_0 <- fit_deconv(predictors=gene_expressions_subset,
+outcome_nopenalty <- fit_deconv(predictors=gene_expressions_subset,
                                   true_labels=ages_subset,
-                                  penalty=0)
+                                p0=0, p1=0)
 
 
-outcome_penalty_5 <- fit_deconv(predictors=gene_expressions_subset,
+outcome_penalty_1 <- fit_deconv(predictors=gene_expressions_subset,
                                   true_labels=ages_subset,
-                                  penalty=5)
+                                p0=50, p1=0)
 
 
-outcome_penalty_10 <- fit_deconv(predictors=gene_expressions_subset,
-                                 true_labels=ages_subset,
-                                 penalty=10)
+outcome_penalty_2 <- fit_deconv(predictors=gene_expressions_subset,
+                                true_labels=ages_subset,
+                                p0=0, p1=50)
 
 
-
-outcome_penalty_20 <- fit_deconv(predictors=gene_expressions_subset,
-                                 true_labels=ages_subset,
-                                 penalty=20)
-
+outcome_penalty_3 <- fit_deconv(predictors=gene_expressions_subset,
+                                true_labels=ages_subset,
+                                p0=50, p1=50)
 
 
 
 
+library(ggplot2)
 library(patchwork)
 
-combined_prediction_plot <- (outcome_penalty_0$prediction_plot | outcome_penalty_5$prediction_plot) /
-    (outcome_penalty_10$prediction_plot | outcome_penalty_20$prediction_plot)
-
-ggsave("experiment/plots/predictions_plot.pdf",
-       plot = combined_prediction_plot,
-       width = 8,
-       height = 6,
-       units = "in")
+# combined_prediction_plot <- (outcome_penalty_0$prediction_plot | outcome_penalty_5$prediction_plot) /
+#     (outcome_penalty_10$prediction_plot | outcome_penalty_20$prediction_plot)
+#
+# ggsave("experiment/plots/predictions_plot.pdf",
+#        plot = combined_prediction_plot,
+#        width = 8,
+#        height = 6,
+#        units = "in")
 
 
 combined_weight_plots <- list()
 
 for (j in 1:nrow(gene_expressions_subset)){
 
-    y_max <- max(c(outcome_penalty_0$weight_mat[j, ],
-                   outcome_penalty_5$weight_mat[j, ],
-                   outcome_penalty_10$weight_mat[j, ],
-                   outcome_penalty_20$weight_mat[j, ]))
+    y_max <- max(c(outcome_nopenalty$weight_mat[j, ],
+                   outcome_penalty_1$weight_mat[j, ],
+                   outcome_penalty_2$weight_mat[j, ],
+                   outcome_penalty_3$weight_mat[j, ]))
 
-    plot_0 <- outcome_penalty_0$weight_plots[[j]] + ylim(0, y_max+0.05)
-    plot_5 <- outcome_penalty_5$weight_plots[[j]] + ylim(0, y_max+0.05)
-    plot_10 <- outcome_penalty_10$weight_plots[[j]] + ylim(0, y_max+0.05)
-    plot_20 <- outcome_penalty_20$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_0 <- outcome_nopenalty$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_1 <- outcome_penalty_1$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_2 <- outcome_penalty_2$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_3 <- outcome_penalty_3$weight_plots[[j]] + ylim(0, y_max+0.05)
 
-    combined_weight_plots[[j]] <- (plot_0 | plot_5) /
-        (plot_10 | plot_20)
+    combined_weight_plots[[j]] <- (plot_0 | plot_1) /
+        (plot_2 | plot_3)
 
-    output_file <- sprintf("experiment/plots/weights_%d.pdf", j)
+    output_file <- sprintf("experiment/plots_new/weights_%d.pdf", j)
 
     ggsave(output_file,
            plot = combined_weight_plots[[j]],
-           width = 8,
+           width = 10,
            height = 6,
            units = "in")
 
