@@ -8,6 +8,7 @@ deconvolution(
   X,
   Y,
   labels,
+  weights = NULL,
   p0 = 0,
   p1 = 0,
   log = T,
@@ -21,6 +22,8 @@ deconvolution(
 \item{Y}{vector of test data}
 
 \item{labels}{labels of all the training samples}
+
+\item{weights}{vector of weights for each feature, if null then is equally one}
 
 \item{p0}{penalty parameter for similarity of weights for samples with the same label}
 

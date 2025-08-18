@@ -139,11 +139,11 @@ f_test_filter <- function(geneexp_df, labels, min_label, max_label){
     pvals <- 1 - pf(variance_df$F_stat, df1=df1, df2=df2)
     variance_df$pval <- pvals
     adjusted_pvals <- p.adjust(pvals, method="BH")
+    variance_df$adjusted_pvals <- adjusted_pvals
 
     subset_genes <- variance_df$Gene[adjusted_pvals < 0.05]
-    variance_df_subset <- variance_df[adjusted_pvals < 0.05, ]
 
-    list(subset_genes=subset_genes, variance_subset=variance_df_subset)
+    list(subset_genes=subset_genes, variance=variance_df)
 
 }
 
@@ -157,7 +157,7 @@ f_test_filter <- function(geneexp_df, labels, min_label, max_label){
 #' @param max_label only include samples whose labels are smaller or equal to max_label
 #'
 #' @returns dendrogram of hierarchical clustering
-#' @importFrom stats dist hclust sd
+#' @importFrom stats dist hclust sd median
 #' @importFrom dplyr group_by summarise across everything %>%
 #' @export
 hcluster_genes <- function(geneexp_df, labels, subset_genes, min_label, max_label){
@@ -171,7 +171,7 @@ hcluster_genes <- function(geneexp_df, labels, subset_genes, min_label, max_labe
 
     # calculate mean expression by group
     log_geneexp_bygroup <- log_geneexp_df_subset %>% group_by(.data$Group) %>%
-        summarise(across(everything(), mean))
+        summarise(across(everything(), median))
     log_geneexp_bygroup$Group <- NULL
 
     # standardize each column

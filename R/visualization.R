@@ -89,3 +89,28 @@ viz_weights <- function(labels, weights, truth=NULL, exclude=NULL, title=NULL){
     return(myplot)
 
 }
+
+
+
+#' Draw gene expression over age
+#'
+#' @param ages labels of training data
+#' @param values estimated weights
+#' @param title title of the ggplot
+#'
+#' @importFrom ggplot2 ggplot geom_point scale_x_continuous xlab ylab ggtitle theme element_text
+#' @export
+viz_gene <- function(ages, values, title="Gene Plot"){
+
+    unique_ages <- unique(ages)
+    df <- data.frame(Age=ages,
+                     Value=values)
+
+    geneexp_plot <- ggplot(df, aes(x=Age, y=Value)) +
+        geom_point() + scale_x_continuous(breaks=unique_ages) +
+        xlab("Age") +ylab("Expression") + ggtitle(title)
+
+    return(geneexp_plot)
+
+}
+
