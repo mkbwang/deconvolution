@@ -118,23 +118,32 @@ var_comp <- function(expression_df, groups){
 #' @param labels labels of all the samples
 #' @param min_label minimum label value to be considered for a sample to be included
 #' @param max_label maximum label value to be considered for a sample to be included
+#' @param transformation what transformation to apply before anova (raw, log or rank)
 #' @returns a list with the selected potential marker genes and the corresponding ANOVA results
 #' @export
 #' @importFrom stats pf p.adjust
-f_test_filter <- function(geneexp_df, labels, min_label, max_label){
+f_test_filter <- function(geneexp_df, labels, min_label, max_label, transformation=c("Raw", "Log", "Rank")){
 
     mask <- (labels >= min_label) & (labels <= max_label)
     labels_subset <- labels[(labels >= min_label) & (labels <= max_label)]
     geneexp_subset <- geneexp_df[mask, ]
-    geneexp_subset_ranks <- apply(geneexp_subset, 2, rank) |>
-        as.data.frame() # calculate ranks
+
+
+    transformation <- match.arg(transformation)
+    if (transformation == "Log"){
+        geneexp_subset <- log(geneexp_subset)
+    } else if(transformation == "Rank"){
+        geneexp_subset <- apply(geneexp_subset, 2, rank) |>
+            as.data.frame() # calculate ranks
+    }
+
 
     # ANOVA result
-    variance_df <-  var_comp(expression_df=geneexp_subset_ranks,
+    variance_df <-  var_comp(expression_df=geneexp_subset,
                              groups=labels_subset)
 
     df1 <- length(unique(labels_subset)) - 1
-    df2 <- nrow(geneexp_subset_ranks) - length(unique(labels_subset))
+    df2 <- nrow(geneexp_subset) - length(unique(labels_subset))
 
     pvals <- 1 - pf(variance_df$F_stat, df1=df1, df2=df2)
     variance_df$pval <- pvals
