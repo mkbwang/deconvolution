@@ -4,7 +4,13 @@
 \alias{f_test_filter}
 \title{Filter genes that varies a lot between samples with different labels based on ANOVA}
 \usage{
-f_test_filter(geneexp_df, labels, min_label, max_label)
+f_test_filter(
+  geneexp_df,
+  labels,
+  min_label,
+  max_label,
+  transformation = c("Raw", "Log", "Rank")
+)
 }
 \arguments{
 \item{geneexp_df}{gene expression dataframe with samples on rows and features on columns}
@@ -14,6 +20,8 @@ f_test_filter(geneexp_df, labels, min_label, max_label)
 \item{min_label}{minimum label value to be considered for a sample to be included}
 
 \item{max_label}{maximum label value to be considered for a sample to be included}
+
+\item{transformation}{what transformation to apply before anova (raw, log or rank)}
 }
 \value{
 a list with the selected potential marker genes and the corresponding ANOVA results
