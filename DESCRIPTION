@@ -14,7 +14,11 @@ Imports:
     rlang (>= 1.1.4),
     Matrix (>= 1.7.0),
     osqp (>= 0.6.3),
-    ggplot2 (>= 3.5.1)
+    ggplot2 (>= 3.5.1),
+    caret (>= 7.0.1),
+    glmnet (>= 4.1.8),
+    coda (>= 0.19.4),
+    R2jags (>= 0.8.9)
 Suggests: 
     rmarkdown (>= 2.11),
     knitr (>= 1.37),

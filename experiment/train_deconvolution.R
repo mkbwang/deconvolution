@@ -1,7 +1,11 @@
 
 
+
+rm(list=ls())
 gene_expressions <- read.csv("experiment/train_data.csv", row.names=1)
+metadata <- read.csv("experiment/metadata.csv", row.names=1)
 library(stringr)
+library(dplyr)
 
 # extract ages
 ages <- sapply(colnames(gene_expressions),
@@ -9,165 +13,105 @@ ages <- sapply(colnames(gene_expressions),
     as.integer()
 
 gene_expressions <- t(gene_expressions) |> as.data.frame()
+age_filter <- ages >= 2 & ages <= 23
+gene_expressions <- gene_expressions[age_filter, ]
+ages <- ages[age_filter]
 
-# retain prevalent genes
-prevalences <- colMeans(gene_expressions > 0)
-subset_genes <- names(prevalences[prevalences == 1])
-gene_expressions <- gene_expressions[, subset_genes]
-
-
-outcome <- f_test_filter(geneexp_df=gene_expressions,
-                         labels=ages,
-                         min_label=2,
-                         max_label=23)
-
-
-subset_genes <- outcome$subset_genes
-variance_df <- outcome$variance_subset
-dendrogram <- hcluster_genes(geneexp_df=gene_expressions,
-                             labels=ages,
-                             subset_genes=subset_genes,
-                             min_label=2,
-                             max_label=23)
+# load marker genes
+markergene_info <- read.csv("experiment/markergene_anova.csv")
+markergene_info_subset <- markergene_info %>% group_by(Cluster) %>% arrange(pval) %>%
+    slice_head(prop=0.3)
+markergene <- markergene_info_subset$Gene
+gene_expressions <- gene_expressions[, markergene]
 
 
-plot(dendrogram, labels = FALSE, xlab="Genes")
+unique_ages <- unique(ages)
 
-clusters <- cutree(dendrogram, k = 15)
-variance_df$Cluster <- clusters
-
-library(dplyr)
-variance_df <- variance_df %>% group_by(Cluster) %>%
-    arrange(pval)
-
-# select top 2.5% of features
-variance_subset_df <- variance_df %>% group_by(Cluster) %>%
-    slice_head(prop = 1/40)
-write.csv(variance_subset_df, "experiment/selected_genes.csv", row.names=FALSE,
-          quote=FALSE)
-
-marker_genes <- variance_subset_df$Gene
+weights_mat <- matrix(0, nrow=nrow(gene_expressions), ncol=length(unique_ages))
+rownames(weights_mat) <- rownames(gene_expressions)
+colnames(weights_mat) <- sprintf("Age_%d", unique_ages)
 
 
-ages_subset <- ages[ages >=2 & ages <= 23]
-gene_expressions_subset <- gene_expressions[ages >=2 & ages <= 23, marker_genes] |>
-    as.matrix()
+for (j in 1:nrow(gene_expressions)){
+    X_expressions <- gene_expressions[-j, ]
+    X_expressions$Age <- ages[-j]
+    X_expressions_median <- X_expressions %>% group_by(Age) %>% summarise_all(median)
+    X_expressions$Age <- NULL
+    X_expressions_median$Age <- NULL
 
 
+    Y_expressions <- gene_expressions[j, ] |> as.matrix() |> as.vector()
 
-# first fit deconvolution among the samples with no penalties
+    normalized_data <- preprocess(X=X_expressions_median, Y=Y_expressions)
+    normalized_X <- normalized_data$normalized_X
+    normalized_Y <- normalized_data$normalized_Y
 
-fit_deconv <- function(predictors, true_labels, penalty=0){
+    deconv_result <- l2_solve(X=normalized_X, Y=normalized_Y,
+                              labels=unique_ages)
 
-
-    estimated_age <-rep(0, length(true_labels))
-    estimated_weights <- matrix(0, nrow=length(true_labels),
-                                ncol=length(true_labels))
-    for (j in 1:length(true_labels)){
-
-        predictors_train <- predictors[-j, ]
-        predictors_test <- predictors[j, ]
-
-        ages_train <- true_labels[-j]
-        ages_test <- true_labels[j]
-
-        l2_result <- deconvolution(X=predictors_train, Y=predictors_test,
-                                   labels=ages_train, type="l2",
-                                   penalty=penalty)
-
-        estimated_weights[j, -j] <- l2_result$weights
-        estimated_age[j] <- l2_result$estim
-
-    }
-
-    mae <- mean(abs(estimated_age - true_labels))
-    plot_title_1 <- sprintf("Penalty = %d; Mean Absolute Error=%.3f",
-                            penalty, mae)
-
-    prediction_plot <- viz_predict(truth=true_labels, predicted=estimated_age,
-                                   diagonal=T, title=plot_title_1)
-
-    weight_plot_list <- list()
-    for (j in 1:nrow(gene_expressions_subset)){
-
-        true_age <- ages_subset[j]
-        estimate <- round(estimated_age[j], digits=3)
-        plot_title_2 <- sprintf("Truth=%d; Estimated=%.3f; Penalty=%d",
-                                true_age, estimate, penalty)
-        weight_plot <- viz_weights(labels=ages_subset, weights=estimated_weights[j, ],
-                                   truth=ages_subset[j], exclude=j, title=plot_title_2)
-        weight_plot_list[[j]] <- weight_plot
-
-    }
-
-
-    return(list(result = data.frame(Truth=true_labels, Predicted=estimated_age),
-                weight_mat = estimated_weights,
-                prediction_plot=prediction_plot,
-                weight_plots=weight_plot_list))
-
-
+    weights_mat[j, ] <- deconv_result$weights
 }
 
 
-outcome_penalty_0 <- fit_deconv(predictors=gene_expressions_subset,
-                                  true_labels=ages_subset,
-                                  penalty=0)
+
+# Bayesian fitting
+
+X_expressions <- gene_expressions[-5, ]
+X_expressions$Age <- ages[-5]
+X_expressions_median <- X_expressions %>% group_by(Age) %>% summarise_all(median)
+X_expressions$Age <- NULL
+X_expressions_median$Age <- NULL
 
 
-outcome_penalty_5 <- fit_deconv(predictors=gene_expressions_subset,
-                                  true_labels=ages_subset,
-                                  penalty=5)
+Y_expressions <- gene_expressions[5, ] |> as.matrix() |> as.vector()
+
+normalized_data <- preprocess(X=X_expressions_median, Y=Y_expressions)
+normalized_X <- normalized_data$normalized_X
+normalized_Y <- normalized_data$normalized_Y
+
+bayes_deconv_result <- deconv_bayes_2(X=normalized_X, Y=normalized_Y,
+                                      n.chains=4, n.iter=3e4, n.burnin=1.5e4, n.thin=4)
+
+bayes_deconv_result$gelman
+bayes_deconv_result$tau1
+bayes_deconv_result$tau2
+bayes_deconv_result$gamma
+
+hist(bayes_deconv_result$Z)
+
+# load test data
 
 
-outcome_penalty_10 <- fit_deconv(predictors=gene_expressions_subset,
-                                 true_labels=ages_subset,
-                                 penalty=10)
 
-
-
-outcome_penalty_20 <- fit_deconv(predictors=gene_expressions_subset,
-                                 true_labels=ages_subset,
-                                 penalty=20)
-
-
-
-
-
+# visualization
+library(ggplot2)
 library(patchwork)
 
-combined_prediction_plot <- (outcome_penalty_0$prediction_plot | outcome_penalty_5$prediction_plot) /
-    (outcome_penalty_10$prediction_plot | outcome_penalty_20$prediction_plot)
 
-ggsave("experiment/plots/predictions_plot.pdf",
-       plot = combined_prediction_plot,
-       width = 8,
-       height = 6,
-       units = "in")
 
 
 combined_weight_plots <- list()
 
 for (j in 1:nrow(gene_expressions_subset)){
 
-    y_max <- max(c(outcome_penalty_0$weight_mat[j, ],
-                   outcome_penalty_5$weight_mat[j, ],
-                   outcome_penalty_10$weight_mat[j, ],
-                   outcome_penalty_20$weight_mat[j, ]))
+    y_max <- max(c(outcome_nopenalty$weight_mat[j, ],
+                   outcome_penalty_1$weight_mat[j, ],
+                   outcome_penalty_2$weight_mat[j, ],
+                   outcome_penalty_3$weight_mat[j, ]))
 
-    plot_0 <- outcome_penalty_0$weight_plots[[j]] + ylim(0, y_max+0.05)
-    plot_5 <- outcome_penalty_5$weight_plots[[j]] + ylim(0, y_max+0.05)
-    plot_10 <- outcome_penalty_10$weight_plots[[j]] + ylim(0, y_max+0.05)
-    plot_20 <- outcome_penalty_20$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_0 <- outcome_nopenalty$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_1 <- outcome_penalty_1$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_2 <- outcome_penalty_2$weight_plots[[j]] + ylim(0, y_max+0.05)
+    plot_3 <- outcome_penalty_3$weight_plots[[j]] + ylim(0, y_max+0.05)
 
-    combined_weight_plots[[j]] <- (plot_0 | plot_5) /
-        (plot_10 | plot_20)
+    combined_weight_plots[[j]] <- (plot_0 | plot_1) /
+        (plot_2 | plot_3)
 
-    output_file <- sprintf("experiment/plots/weights_%d.pdf", j)
+    output_file <- sprintf("experiment/plots_new/weights_%d.pdf", j)
 
     ggsave(output_file,
            plot = combined_weight_plots[[j]],
-           width = 8,
+           width = 10,
            height = 6,
            units = "in")
 

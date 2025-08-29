@@ -4,7 +4,7 @@
 \alias{l2_solve}
 \title{deconvolution based on l2 loss}
 \usage{
-l2_solve(X, Y, labels, penalty = 0, verbose = FALSE)
+l2_solve(X, Y, labels, weights = NULL, p0 = 0, p1 = 0, verbose = FALSE)
 }
 \arguments{
 \item{X}{matrix of training data (nsample * nfeature)}
@@ -13,7 +13,11 @@ l2_solve(X, Y, labels, penalty = 0, verbose = FALSE)
 
 \item{labels}{labels of all the training samples}
 
-\item{penalty}{penalty coefficient to force weights of similar samples to be similar}
+\item{weights}{vector of weights for each feature, if null then is equally one}
+
+\item{p0}{penalty parameter for similarity of weights for samples with the same label}
+
+\item{p1}{penalty parameter for smoothness of average weights among three adjacent different labels}
 
 \item{verbose}{Whether to print out details of osqp function, default False}
 }

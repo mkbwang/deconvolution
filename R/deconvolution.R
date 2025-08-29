@@ -5,7 +5,9 @@
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
 #' @param labels labels of all the training samples
-#' @param penalty penalty coefficient to force weights of similar samples to be similar
+#' @param weights vector of weights for each feature, if null then is equally one
+#' @param p0 penalty parameter for similarity of weights for samples with the same label
+#' @param p1 penalty parameter for smoothness of average weights among three adjacent different labels
 #' @param verbose Whether to print out details of osqp function, default False
 #'
 #' @returns Estimated weights and the weighted sum of training labels
@@ -13,19 +15,23 @@
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-l2_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
+l2_solve <- function(X, Y, labels, weights=NULL, p0=0, p1=0, verbose=FALSE){
 
     nsamples <- nrow(X)
     ngenes <- ncol(X)
 
-    XXt <- X %*% t(X)
-    XY <- X %*% Y
+    if (is.null(weights)){
+        weights_mat <- diag(length(Y))
+    } else{
+        weights_mat <- diag(weights)
+    }
+
+    XXt <- X %*% weights_mat %*% t(X)
+    XY <- X %*% weights_mat  %*% Y
 
     # penalty based on differences between ages
-    labels_mat <- matrix(labels, nrow=length(labels), ncol=length(labels))
-    inverse_abs_distance <- penalty / (abs(labels_mat - t(labels_mat)) + 1)
-    penalty_mat <- -inverse_abs_distance
-    diag(penalty_mat) <- diag(penalty_mat) + rowSums(inverse_abs_distance)
+    penalty_mat <- penalty_smooth(labels=labels,
+                                  p0=p0, p1=p1)
 
     Pmat <- Matrix(XXt + penalty_mat, sparse=T)
     qvec <- -XY
@@ -69,7 +75,8 @@ l2_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
 #' @param labels labels of all the training samples
-#' @param penalty penalty coefficient to force weights of similar samples to be similar
+#' @param p0 penalty parameter for similarity of weights for samples with the same label
+#' @param p1 penalty parameter for smoothness of average weights among three adjacent different labels
 #' @param verbose Whether to print out details of osqp function, default False
 #'
 #' @returns Estimated weights and the weighted sum of training labels
@@ -77,16 +84,14 @@ l2_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-l1_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
+l1_solve <- function(X, Y, labels, p0=0, p1=0, verbose=FALSE){
 
     nsamples <- nrow(X)
     ngenes <- ncol(X)
 
     # penalty based on differences between ages
-    labels_mat <- matrix(labels, nrow=length(labels), ncol=length(labels))
-    inverse_abs_distance <- penalty / (abs(labels_mat - t(labels_mat)) + 1)
-    penalty_mat <- -inverse_abs_distance
-    diag(penalty_mat) <- diag(penalty_mat) + rowSums(inverse_abs_distance)
+    penalty_mat <- penalty_smooth(labels=labels,
+                                  p0=p0, p1=p1)
 
     Pmat <- matrix(0, nrow=nsamples+ngenes, ncol=nsamples+ngenes)
     Pmat[1:nsamples, 1:nsamples] <- penalty_mat
@@ -138,12 +143,14 @@ l1_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
 
 
 
-#' deconvolution based on l1 loss
+#' deconvolution based on l1 or l2 loss
 #'
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
 #' @param labels labels of all the training samples
-#' @param penalty penalty coefficient to force weights of similar samples to be similar
+#' @param weights vector of weights for each feature, if null then is equally one
+#' @param p0 penalty parameter for similarity of weights for samples with the same label
+#' @param p1 penalty parameter for smoothness of average weights among three adjacent different labels
 #' @param log whether to take log of the values
 #' @param type l1 loss or l2 loss
 #' @param verbose Whether to print out details of osqp function, default False
@@ -153,47 +160,24 @@ l1_solve <- function(X, Y, labels, penalty=0, verbose=FALSE){
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-deconvolution <- function(X, Y, labels, penalty=0, log=T, type=c("l1", "l2"),
+deconvolution <- function(X, Y, labels, weights=NULL, p0=0, p1=0, log=T, type=c("l1", "l2"),
                           verbose=FALSE){
 
-    # replace zeros in X with pseudocount
-    impute_zero <- function(xvec){
-        if(sum(xvec == 0) > 0){
-            xvec[xvec == 0] <- min(xvec[xvec > 0])/2
-        }
-        return(xvec)
-    }
+    preprocessed_data <- preprocess(X=X, Y=Y,
+                                    takelog=log)
 
-    if (log){ # take log
-        X <- apply(X, 2, impute_zero) # impute zeros in X
-        minimum_X <- apply(X, 2, min)
-        if (sum(Y == 0) > 0){
-            Y[Y == 0] <- minimum_X[Y == 0]
-        }
-        X <- log(X)
-        Y <- log(Y)
-    }
-
-    # standardize X and Y
-    mean_X <- colMeans(X)
-    repeat_means <- matrix(mean_X, nrow=length(labels),
-                           ncol=length(mean_X),
-                           byrow=TRUE)
-    sd_X <- apply(X, 2, sd)
-    repeat_sd <- matrix(sd_X, nrow=length(labels),
-                        ncol=length(sd_X),
-                        byrow=TRUE)
-    standardized_X <- (X - repeat_means) / repeat_sd
-    standardized_Y <- (Y - mean_X) / sd_X
+    standardized_X <- preprocessed_data$normalized_X
+    standardized_Y <- preprocessed_data$normalized_Y
 
     type <- match.arg(type)
     if (type == "l2"){
         result <- l2_solve(X=standardized_X, Y=standardized_Y,
-                           labels=labels, penalty=penalty,
+                           weights = weights,
+                           labels=labels, p0=p0, p1=p1,
                            verbose=verbose)
     } else{
         result <- l1_solve(X=standardized_X, Y=standardized_Y,
-                           labels=labels, penalty=penalty,
+                           labels=labels, p0=p0, p1=p1,
                            verbose=verbose)
     }
     return(result)

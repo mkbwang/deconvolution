@@ -2,13 +2,15 @@
 % Please edit documentation in R/deconvolution.R
 \name{deconvolution}
 \alias{deconvolution}
-\title{deconvolution based on l1 loss}
+\title{deconvolution based on l1 or l2 loss}
 \usage{
 deconvolution(
   X,
   Y,
   labels,
-  penalty = 0,
+  weights = NULL,
+  p0 = 0,
+  p1 = 0,
   log = T,
   type = c("l1", "l2"),
   verbose = FALSE
@@ -21,7 +23,11 @@ deconvolution(
 
 \item{labels}{labels of all the training samples}
 
-\item{penalty}{penalty coefficient to force weights of similar samples to be similar}
+\item{weights}{vector of weights for each feature, if null then is equally one}
+
+\item{p0}{penalty parameter for similarity of weights for samples with the same label}
+
+\item{p1}{penalty parameter for smoothness of average weights among three adjacent different labels}
 
 \item{log}{whether to take log of the values}
 
@@ -33,5 +39,5 @@ deconvolution(
 Estimated weights and the weighted sum of training labels
 }
 \description{
-deconvolution based on l1 loss
+deconvolution based on l1 or l2 loss
 }
