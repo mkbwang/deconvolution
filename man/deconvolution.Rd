@@ -9,10 +9,9 @@ deconvolution(
   Y,
   labels,
   weights = NULL,
-  p0 = 0,
-  p1 = 0,
+  lambda1 = 0,
+  lambda2 = 0,
   log = T,
-  type = c("l1", "l2"),
   verbose = FALSE
 )
 }
@@ -25,13 +24,11 @@ deconvolution(
 
 \item{weights}{vector of weights for each feature, if null then is equally one}
 
-\item{p0}{penalty parameter for similarity of weights for samples with the same label}
+\item{lambda1}{penalty parameter for smoothness}
 
-\item{p1}{penalty parameter for smoothness of average weights among three adjacent different labels}
+\item{lambda2}{penalty parameter for LASSO shrinkage}
 
 \item{log}{whether to take log of the values}
-
-\item{type}{l1 loss or l2 loss}
 
 \item{verbose}{Whether to print out details of osqp function, default False}
 }

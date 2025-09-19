@@ -6,8 +6,8 @@
 #' @param Y vector of test data
 #' @param labels labels of all the training samples
 #' @param weights vector of weights for each feature, if null then is equally one
-#' @param p0 penalty parameter for similarity of weights for samples with the same label
-#' @param p1 penalty parameter for smoothness of average weights among three adjacent different labels
+#' @param lambda1 penalty parameter for smoothness
+#' @param lambda2 penalty parameter for LASSO shrinkage
 #' @param verbose Whether to print out details of osqp function, default False
 #'
 #' @returns Estimated weights and the weighted sum of training labels
@@ -15,7 +15,7 @@
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-l2_solve <- function(X, Y, labels, weights=NULL, p0=0, p1=0, verbose=FALSE){
+l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, verbose=FALSE){
 
     nsamples <- nrow(X)
     ngenes <- ncol(X)
@@ -30,11 +30,10 @@ l2_solve <- function(X, Y, labels, weights=NULL, p0=0, p1=0, verbose=FALSE){
     XY <- X %*% weights_mat  %*% Y
 
     # penalty based on differences between ages
-    penalty_mat <- penalty_smooth(labels=labels,
-                                  p0=p0, p1=p1)
+    omega <- penalty_smooth(labels=labels, lambda=lambda1)
 
-    Pmat <- Matrix(XXt + penalty_mat, sparse=T)
-    qvec <- -XY
+    Pmat <- Matrix(XXt + omega, sparse=T)
+    qvec <- -XY + lambda2/2
 
 
     # linear constraints
@@ -44,101 +43,106 @@ l2_solve <- function(X, Y, labels, weights=NULL, p0=0, p1=0, verbose=FALSE){
     u_0 <- rep(Inf, nsamples)
 
     ## sum to one
-    A_1 <- rep(1, nsamples)
-    l_1 <- 1
-    u_1 <- 1
+    # A_1 <- rep(1, nsamples)
+    # l_1 <- 1
+    # u_1 <- 1
 
-    A_mat <- Matrix(rbind(A_0, A_1), sparse=T)
-    l_vec <- c(l_0, l_1)
-    u_vec <- c(u_0, u_1)
+    A_mat <- Matrix(A_0, sparse=T)
+    l_vec <- l_0
+    u_vec <- u_0
 
     settings <- osqpSettings(alpha = 1.0, verbose=verbose)
     model <- osqp(P=Pmat, q=qvec, A=A_mat, l=l_vec, u=u_vec,
                   pars=settings)
-
     res <- model$Solve()
 
     solution <- res$x
-    solution[solution < 1/nsamples/10] <- 0
-    solution <- solution/sum(solution)
+    solution[solution < 0] <- 0
+    normalized_solution <- solution/sum(solution)
+    # trim very small weights to zero
+    # trim_indices <- which(normalized_solution < 1/nsamples/10)
+    # solution[trim_indices] <- 0
+    # normalized_solution <- solution/sum(solution)
 
-    label_estim <- sum(solution*labels)
+    label_estim <- sum(normalized_solution*labels)
 
-    return(list(weights=solution, estim=label_estim))
-
-}
-
-
-
-#' deconvolution based on l1 loss
-#'
-#' @param X matrix of training data (nsample * nfeature)
-#' @param Y vector of test data
-#' @param labels labels of all the training samples
-#' @param p0 penalty parameter for similarity of weights for samples with the same label
-#' @param p1 penalty parameter for smoothness of average weights among three adjacent different labels
-#' @param verbose Whether to print out details of osqp function, default False
-#'
-#' @returns Estimated weights and the weighted sum of training labels
-#'
-#' @importFrom Matrix Matrix
-#' @importFrom osqp osqp osqpSettings
-#' @export
-l1_solve <- function(X, Y, labels, p0=0, p1=0, verbose=FALSE){
-
-    nsamples <- nrow(X)
-    ngenes <- ncol(X)
-
-    # penalty based on differences between ages
-    penalty_mat <- penalty_smooth(labels=labels,
-                                  p0=p0, p1=p1)
-
-    Pmat <- matrix(0, nrow=nsamples+ngenes, ncol=nsamples+ngenes)
-    Pmat[1:nsamples, 1:nsamples] <- penalty_mat
-    Pmat <- Matrix(Pmat, sparse=T)
-
-    qvec <- c(rep(0, nsamples), rep(1, ngenes))
-
-    # linear constraints
-    ## sum to one
-    A_0 <- c(rep(1, nsamples), rep(0, ngenes))
-    l_0 <- 1
-    u_0 <- 1
-
-    ## nonnegative weights
-    A_1 <- cbind(diag(nsamples), matrix(0, nrow=nsamples, ncol=ngenes))
-    l_1 <- rep(0, nsamples)
-    u_1 <- rep(Inf, nsamples)
-
-    ## absolute value 1
-    A_2 <- cbind(t(X), diag(ngenes))
-    l_2 <- Y
-    u_2 <- rep(Inf, ngenes)
-
-    ## absolute value 2
-    A_3 <- cbind(-t(X), diag(ngenes))
-    l_3 <- -Y
-    u_3 <- rep(Inf, ngenes)
-
-    A_mat <- Matrix(rbind(A_0, A_1, A_2, A_3), sparse=T)
-    l_vec <- c(l_0, l_1, l_2, l_3)
-    u_vec <- c(u_0, u_1, u_2, u_3)
-
-    settings <- osqpSettings(alpha = 1.0, verbose=verbose)
-    model <- osqp(P=Pmat, q=qvec, A=A_mat, l=l_vec, u=u_vec,
-                  pars=settings)
-
-    res <- model$Solve()
-
-    solution <- res$x[1:nsamples]
-    solution[solution < 1/nsamples/10] <- 0
-    solution <- solution/sum(solution)
-
-    label_estim <- sum(solution*labels)
-
-    return(list(weights=solution, estim=label_estim))
+    return(list(weights=solution, normalized_weights=normalized_solution,
+                estim=label_estim))
 
 }
+
+
+
+# deconvolution based on l1 loss
+#
+# @param X matrix of training data (nsample * nfeature)
+# @param Y vector of test data
+# @param labels labels of all the training samples
+# @param p0 penalty parameter for similarity of weights for samples with the same label
+# @param p1 penalty parameter for smoothness of average weights among three adjacent different labels
+# @param verbose Whether to print out details of osqp function, default False
+#
+# @returns Estimated weights and the weighted sum of training labels
+#
+# @importFrom Matrix Matrix
+# @importFrom osqp osqp osqpSettings
+# @export
+
+# l1_solve <- function(X, Y, labels, p0=0, p1=0, verbose=FALSE){
+#
+#     nsamples <- nrow(X)
+#     ngenes <- ncol(X)
+#
+#     # penalty based on differences between ages
+#     penalty_mat <- penalty_smooth(labels=labels,
+#                                   p0=p0, p1=p1)
+#
+#     Pmat <- matrix(0, nrow=nsamples+ngenes, ncol=nsamples+ngenes)
+#     Pmat[1:nsamples, 1:nsamples] <- penalty_mat
+#     Pmat <- Matrix(Pmat, sparse=T)
+#
+#     qvec <- c(rep(0, nsamples), rep(1, ngenes))
+#
+#     # linear constraints
+#     ## sum to one
+#     A_0 <- c(rep(1, nsamples), rep(0, ngenes))
+#     l_0 <- 1
+#     u_0 <- 1
+#
+#     ## nonnegative weights
+#     A_1 <- cbind(diag(nsamples), matrix(0, nrow=nsamples, ncol=ngenes))
+#     l_1 <- rep(0, nsamples)
+#     u_1 <- rep(Inf, nsamples)
+#
+#     ## absolute value 1
+#     A_2 <- cbind(t(X), diag(ngenes))
+#     l_2 <- Y
+#     u_2 <- rep(Inf, ngenes)
+#
+#     ## absolute value 2
+#     A_3 <- cbind(-t(X), diag(ngenes))
+#     l_3 <- -Y
+#     u_3 <- rep(Inf, ngenes)
+#
+#     A_mat <- Matrix(rbind(A_0, A_1, A_2, A_3), sparse=T)
+#     l_vec <- c(l_0, l_1, l_2, l_3)
+#     u_vec <- c(u_0, u_1, u_2, u_3)
+#
+#     settings <- osqpSettings(alpha = 1.0, verbose=verbose)
+#     model <- osqp(P=Pmat, q=qvec, A=A_mat, l=l_vec, u=u_vec,
+#                   pars=settings)
+#
+#     res <- model$Solve()
+#
+#     solution <- res$x[1:nsamples]
+#     solution[solution < 1/nsamples/10] <- 0
+#     solution <- solution/sum(solution)
+#
+#     label_estim <- sum(solution*labels)
+#
+#     return(list(weights=solution, estim=label_estim))
+#
+# }
 
 
 
@@ -149,10 +153,9 @@ l1_solve <- function(X, Y, labels, p0=0, p1=0, verbose=FALSE){
 #' @param Y vector of test data
 #' @param labels labels of all the training samples
 #' @param weights vector of weights for each feature, if null then is equally one
-#' @param p0 penalty parameter for similarity of weights for samples with the same label
-#' @param p1 penalty parameter for smoothness of average weights among three adjacent different labels
+#' @param lambda1 penalty parameter for smoothness
+#' @param lambda2 penalty parameter for LASSO shrinkage
 #' @param log whether to take log of the values
-#' @param type l1 loss or l2 loss
 #' @param verbose Whether to print out details of osqp function, default False
 #'
 #' @returns Estimated weights and the weighted sum of training labels
@@ -160,7 +163,7 @@ l1_solve <- function(X, Y, labels, p0=0, p1=0, verbose=FALSE){
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-deconvolution <- function(X, Y, labels, weights=NULL, p0=0, p1=0, log=T, type=c("l1", "l2"),
+deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, log=T,
                           verbose=FALSE){
 
     preprocessed_data <- preprocess(X=X, Y=Y,
@@ -170,16 +173,16 @@ deconvolution <- function(X, Y, labels, weights=NULL, p0=0, p1=0, log=T, type=c(
     standardized_Y <- preprocessed_data$normalized_Y
 
     type <- match.arg(type)
-    if (type == "l2"){
-        result <- l2_solve(X=standardized_X, Y=standardized_Y,
-                           weights = weights,
-                           labels=labels, p0=p0, p1=p1,
-                           verbose=verbose)
-    } else{
-        result <- l1_solve(X=standardized_X, Y=standardized_Y,
-                           labels=labels, p0=p0, p1=p1,
-                           verbose=verbose)
-    }
+    # if (type == "l2"){
+    result <- l2_solve(X=standardized_X, Y=standardized_Y,
+                       weights = weights,
+                       labels=labels, lambda1=lambda1, lambda2=lambda2,
+                       verbose=verbose)
+    # } else{
+    #     result <- l1_solve(X=standardized_X, Y=standardized_Y,
+    #                        labels=labels, p0=p0, p1=p1,
+    #                        verbose=verbose)
+    # }
     return(result)
 }
 

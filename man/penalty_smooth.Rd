@@ -4,14 +4,12 @@
 \alias{penalty_smooth}
 \title{Generate penalty matrix}
 \usage{
-penalty_smooth(labels, p0 = 1, p1 = 10)
+penalty_smooth(labels, lambda = 1)
 }
 \arguments{
 \item{labels}{phenotypes of all the samples}
 
-\item{p0}{penalty parameter for similarity of weights for samples with the same label}
-
-\item{p1}{penalty parameter for smoothness of average weights among three adjacent different labels}
+\item{lambda}{penalty parameter for similarity of weights for samples with the same label}
 }
 \value{
 penalty quadratic matrix

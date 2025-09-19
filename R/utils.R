@@ -6,6 +6,40 @@ if (getRversion() >= "2.15.1") {
 }
 
 
+#' Calculate median value and IQR of each feature
+#' @param value_mat data matrix (nsample * nfeature)
+#' @returns median value vector and scale vector
+#'
+#' @importFrom stats quantile
+#' @export
+robust_scale <- function(value_mat){
+    # take median and report scale based on IQR
+    quantile_vals <- apply(value_mat, MARGIN=2, FUN=function(vec){
+        quantile(vec, c(0.25, 0.5, 0.75))
+    })
+
+    med_vals <- quantile_vals[2, ]
+    scale_vals <- quantile_vals[3, ] - quantile_vals[1, ]
+
+    return(list(median_vals=med_vals,
+                scale_vals=scale_vals))
+}
+
+#'  Robust scaling of a matrix or a vector
+#' @param value_mat data matrix (nsample*nfeature) or vector (nfeature)
+#' @param median_vals median value vector (nfeature)
+#' @param scale_vals scale value vector (nfeature)
+#' @export
+scale_transform <- function(value_mat, median_vals, scale_vals){
+    if (!is.null(dim(value_mat))){
+        t_scaled_mat <- (t(value_mat) - median_vals) / scale_vals
+        return(t(t_scaled_mat))
+    } else{
+        scaled_vec <- (value_mat - median_vals) / scale_vals
+        return(scaled_vec)
+    }
+}
+
 #' take log and normalize both training data and test data
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
@@ -34,19 +68,15 @@ preprocess <- function(X, Y, takelog=T){
     }
 
     # standardize X and Y
-    mean_X <- colMeans(X)
-    repeat_means <- matrix(mean_X, nrow=nrow(X),
-                           ncol=ncol(X),
-                           byrow=TRUE)
-    sd_X <- apply(X, 2, sd)
-    repeat_sd <- matrix(sd_X, nrow=nrow(X),
-                        ncol=ncol(X),
-                        byrow=TRUE)
-    standardized_X <- (X - repeat_means) / repeat_sd
-    standardized_Y <- (Y - mean_X) / sd_X
+    scaling_params <- robust_scale(X)
+    X_scaled <- scale_transform(X, scaling_params$median_vals,
+                                scaling_params$scale_vals)
+    Y_scaled <- scale_transform(Y, scaling_params$median_vals,
+                                scaling_params$scale_vals)
 
-    return(list(normalized_X=standardized_X,
-                normalized_Y=standardized_Y))
+
+    return(list(normalized_X=X_scaled,
+                normalized_Y=Y_scaled))
 
 }
 
