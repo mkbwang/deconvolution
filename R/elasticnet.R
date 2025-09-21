@@ -3,70 +3,44 @@
 
 #' Elastic Net Regression Prediction
 #'
-#' @param X matrix of training data (nsample * nfeature)
-#' @param Y vector of test data
-#' @param labels labels of all the training samples
-#' @param log whether to take log of the values
-#' @param verbose Whether to print out details of osqp function, default False
+#' @param train_data feature values of training samples (nsample*nfeature)
+#' @param train_labels response values of training samples
+#' @param test_data feature values of test samples (nsample*nfeature)
+#' @param test_labels response values of test samples
 #'
 #' @returns Estimated coefficients and prediction
 #'
-#' @importFrom caret createFolds
 #' @importFrom glmnet cv.glmnet
 #' @importFrom stats coef predict
 #' @export
-elasticnet <- function(X, Y, labels, log=T, verbose=FALSE){
-
-    # replace zeros in X with pseudocount
-    impute_zero <- function(xvec){
-        if(sum(xvec == 0) > 0){
-            xvec[xvec == 0] <- min(xvec[xvec > 0])/2
-        }
-        return(xvec)
-    }
-
-    if (log){ # take log
-        X <- apply(X, 2, impute_zero) # impute zeros in X
-        minimum_X <- apply(X, 2, min)
-        if (sum(Y == 0) > 0){
-            Y[Y == 0] <- minimum_X[Y == 0]
-        }
-        X <- log(X)
-        Y <- log(Y)
-    }
-
-    # standardize X and Y
-    mean_X <- colMeans(X)
-    repeat_means <- matrix(mean_X, nrow=length(labels),
-                           ncol=length(mean_X),
-                           byrow=TRUE)
-    sd_X <- apply(X, 2, sd)
-    repeat_sd <- matrix(sd_X, nrow=length(labels),
-                        ncol=length(sd_X),
-                        byrow=TRUE)
-    standardized_X <- (X - repeat_means) / repeat_sd
-    standardized_Y <- (Y - mean_X) / sd_X
-
-
-    # create cross validation folds
-    folds <- createFolds(factor(labels), k = 4)
-    # Convert list of folds into a numeric vector where each element indicates the fold ID
-    foldid <- rep(NA, length(labels))
-    for(i in seq_along(folds)) {
-        foldid[folds[[i]]] <- i
-    }
+elasticnet <- function(train_data, train_labels, test_data, test_labels){
 
     # cross validation
-    cv_fit <- cv.glmnet(x=standardized_X,
-                        y=labels,
-                        alpha=0.5, type.measure = "mse",
-                        foldid=foldid)
+    en_fit <- cv.glmnet(x=as.matrix(train_data), y=train_labels, alpha=0.5,
+                        type.measure="mae")
+    en_coefs <- coef(en_fit, s="lambda.min")
+    en_coefs <- en_coefs[-1]
+    nonzero_indices <- which(en_coefs != 0)
 
-    en_coefs <- coef(cv_fit, s = "lambda.min") |> as.vector()
-    predicted_Y <- predict(cv_fit, s="lambda.min", newx=standardized_Y)
-    result <- list(coefs=en_coefs, prediction=predicted_Y)
-    return(result)
+    coef_df <- data.frame(Feature=colnames(train_data)[nonzero_indices],
+                          Value=en_coefs[nonzero_indices])
+
+    en_train_prediction <- predict(en_fit, newx=as.matrix(train_data),
+                                   s="lambda.min")
+    en_test_prediction <- predict(en_fit, newx=as.matrix(test_data),
+                                  s="lambda.min")
+
+    prediction_df <- data.frame(Truth=c(train_labels, test_labels),
+                                Prediction=c(en_train_prediction, en_test_prediction))
+
+    prediction_df$Batch <- c(rep("Train", length(train_labels)), rep("Test", length(test_labels)))
+    rownames(prediction_df) <- c(rownames(train_data), rownames(test_data))
+    output <- list(coefs=coef_df,
+                   prediction=prediction_df)
+
+    return(output)
 
 }
+
 
 

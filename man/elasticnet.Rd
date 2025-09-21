@@ -4,18 +4,16 @@
 \alias{elasticnet}
 \title{Elastic Net Regression Prediction}
 \usage{
-elasticnet(X, Y, labels, log = T, verbose = FALSE)
+elasticnet(train_data, train_labels, test_data, test_labels)
 }
 \arguments{
-\item{X}{matrix of training data (nsample * nfeature)}
+\item{train_data}{feature values of training samples (nsample*nfeature)}
 
-\item{Y}{vector of test data}
+\item{train_labels}{response values of training samples}
 
-\item{labels}{labels of all the training samples}
+\item{test_data}{feature values of test samples (nsample*nfeature)}
 
-\item{log}{whether to take log of the values}
-
-\item{verbose}{Whether to print out details of osqp function, default False}
+\item{test_labels}{response values of test samples}
 }
 \value{
 Estimated coefficients and prediction
