@@ -19,8 +19,8 @@ viz_predict <- function(truth, predicted, diagonal=TRUE, title=NULL){
     max_age <- max(truth)
 
     myplot <- ggplot(predictions_df, aes(x=.data$Truth, y=.data$Predicted)) +
-        geom_point() + scale_x_continuous(breaks=unique_ages, limits=c(min_age-1, max_age+1))+
-        scale_y_continuous(breaks=unique_ages, limits=c(min_age-1, max_age+1))+
+        geom_point() + scale_x_continuous(breaks=seq(min_age, max_age, 5), limits=c(min_age-1, max_age+1))+
+        scale_y_continuous(breaks=seq(min_age, max_age, 5), limits=c(min_age-1, max_age+1))+
         theme(text=element_text(size=10))
 
     if(diagonal){
@@ -106,7 +106,7 @@ viz_gene <- function(ages, values, title="Gene Plot"){
     df <- data.frame(Age=ages,
                      Value=values)
 
-    geneexp_plot <- ggplot(df, aes(x=Age, y=Value)) +
+    geneexp_plot <- ggplot(df, aes(x=.data$Age, y=.data$Value)) +
         geom_point() + scale_x_continuous(breaks=unique_ages) +
         xlab("Age") +ylab("Expression") + ggtitle(title)
 
