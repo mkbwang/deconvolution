@@ -86,6 +86,7 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, verbose=F
 #' @param lambda1 penalty parameter for smoothness
 #' @param lambda2 penalty parameter for LASSO shrinkage
 #' @param log whether to take log of the values
+#' @param min_scale features whose IQR value smaller than min_scale will be removed
 #' @param verbose Whether to print out details of osqp function, default False
 #'
 #' @returns Estimated weights and the weighted sum of training labels
@@ -94,10 +95,12 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, verbose=F
 #' @importFrom osqp osqp osqpSettings
 #' @export
 deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, log=T,
+                          min_scale=0.01,
                           verbose=FALSE){
 
     preprocessed_data <- preprocess(X=X, Y=Y,
-                                    takelog=log)
+                                    takelog=log,
+                                    min_scale=min_scale)
 
     standardized_X <- preprocessed_data$normalized_X
     standardized_Y <- preprocessed_data$normalized_Y
@@ -127,23 +130,27 @@ deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, log=
 #' @param nu stablizing parameter for reweighing features for deconvolution
 #' @param epsilon tolerance value for stoppage of iterations
 #' @param log whether to take log of the values
+#' @param min_scale features whose IQR value smaller than min_scale will be removed
 #' @param max_iter maximum number of iterations
 #' @param verbose Whether to print out details of osqp function, default False
 #'
 #' @returns Estimated weights and the weighted sum of training labels
 #'
 #' @export
-iter_deconv <- function(X, Y, labels, lambda1=0, lambda2=0, log=T, nu=1e-3, epsilon=1e-2,
-                        max_iter=100, verbose=FALSE){
+iter_deconv <- function(X, Y, labels, lambda1=0, lambda2=0, log=T, min_scale=0.01,
+                        nu=1e-3, epsilon=1e-2,
+                        max_iter=20, verbose=FALSE){
 
 
     weights <- rep(0, length(labels))
     normalized_weights <- rep(0, length(labels))
-    feature_weights <- rep(1, length(Y))
+
     preprocessed_data <- preprocess(X=X, Y=Y,
-                                    takelog=log)
+                                    takelog=log,
+                                    min_scale=min_scale)
     standardized_X <- preprocessed_data$normalized_X
     standardized_Y <- preprocessed_data$normalized_Y
+    feature_weights <- rep(1, length(standardized_Y))
 
     j <- 0
     while(j < max_iter){
