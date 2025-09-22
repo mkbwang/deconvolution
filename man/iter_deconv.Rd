@@ -11,9 +11,10 @@ iter_deconv(
   lambda1 = 0,
   lambda2 = 0,
   log = T,
+  min_scale = 0.01,
   nu = 0.001,
   epsilon = 0.01,
-  max_iter = 100,
+  max_iter = 20,
   verbose = FALSE
 )
 }
@@ -29,6 +30,8 @@ iter_deconv(
 \item{lambda2}{penalty parameter for LASSO shrinkage}
 
 \item{log}{whether to take log of the values}
+
+\item{min_scale}{features whose IQR value smaller than min_scale will be removed}
 
 \item{nu}{stablizing parameter for reweighing features for deconvolution}
 

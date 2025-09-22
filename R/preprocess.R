@@ -44,10 +44,11 @@ scale_transform <- function(value_mat, median_vals, scale_vals){
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
 #' @param takelog whether to take log of X and Y before normalization
+#' @param min_scale features whose IQR value smaller than min_scale will be removed
 #' @returns normalized training data and test data
 #'
 #' @export
-preprocess <- function(X, Y, takelog=T){
+preprocess <- function(X, Y, takelog=T, min_scale=0.01){
 
     # replace zeros in X with pseudocount
     impute_zero <- function(xvec){
@@ -69,10 +70,18 @@ preprocess <- function(X, Y, takelog=T){
 
     # standardize X and Y
     scaling_params <- robust_scale(X)
-    X_scaled <- scale_transform(X, scaling_params$median_vals,
-                                scaling_params$scale_vals)
-    Y_scaled <- scale_transform(Y, scaling_params$median_vals,
-                                scaling_params$scale_vals)
+    mask <- scaling_params$scale_vals > min_scale
+    X <- X[, mask]
+    if (is.null(dim(Y))){
+        Y <- Y[mask]
+    } else{
+        Y <- Y[, mask]
+    }
+
+    X_scaled <- scale_transform(X, scaling_params$median_vals[mask],
+                                scaling_params$scale_vals[mask])
+    Y_scaled <- scale_transform(Y, scaling_params$median_vals[mask],
+                                scaling_params$scale_vals[mask])
 
 
     return(list(normalized_X=X_scaled,
