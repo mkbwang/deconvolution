@@ -11,6 +11,7 @@ l2_solve(
   weights = NULL,
   lambda1 = 0,
   lambda2 = 0,
+  alpha = 0.5,
   verbose = FALSE
 )
 }
@@ -26,6 +27,8 @@ l2_solve(
 \item{lambda1}{penalty parameter for smoothness}
 
 \item{lambda2}{penalty parameter for LASSO shrinkage}
+
+\item{alpha}{elastic net parameter to split between ridge and LASSO penalty}
 
 \item{verbose}{Whether to print out details of osqp function, default False}
 }
