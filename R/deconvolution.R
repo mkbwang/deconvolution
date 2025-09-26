@@ -108,7 +108,6 @@ deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alph
     standardized_X <- preprocessed_data$normalized_X
     standardized_Y <- preprocessed_data$normalized_Y
 
-    type <- match.arg(type)
     # if (type == "l2"){
     result <- l2_solve(X=standardized_X, Y=standardized_Y,
                        weights = weights,
