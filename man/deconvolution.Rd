@@ -11,6 +11,7 @@ deconvolution(
   weights = NULL,
   lambda1 = 0,
   lambda2 = 0,
+  alpha = 0.5,
   log = T,
   min_scale = 0.01,
   verbose = FALSE
@@ -28,6 +29,8 @@ deconvolution(
 \item{lambda1}{penalty parameter for smoothness}
 
 \item{lambda2}{penalty parameter for LASSO shrinkage}
+
+\item{alpha}{elastic net parameter to split between ridge and LASSO penalty}
 
 \item{log}{whether to take log of the values}
 

@@ -8,6 +8,7 @@
 #' @param weights vector of weights for each feature, if null then is equally one
 #' @param lambda1 penalty parameter for smoothness
 #' @param lambda2 penalty parameter for LASSO shrinkage
+#' @param alpha elastic net parameter to split between ridge and LASSO penalty
 #' @param verbose Whether to print out details of osqp function, default False
 #'
 #' @returns Estimated weights and the weighted sum of training labels
@@ -15,7 +16,7 @@
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, verbose=FALSE){
+l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=0.5, verbose=FALSE){
 
     nsamples <- nrow(X)
     ngenes <- ncol(X)
@@ -32,8 +33,8 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, verbose=F
     # penalty based on differences between ages
     omega <- penalty_smooth(labels=labels, lambda=lambda1)
 
-    Pmat <- Matrix(XXt + omega, sparse=T)
-    qvec <- -XY + lambda2/2
+    Pmat <- Matrix(XXt + omega + lambda2*diag(length(labels))*(1-alpha), sparse=T)
+    qvec <- -XY + lambda2*alpha/2
 
 
     # linear constraints
@@ -85,6 +86,7 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, verbose=F
 #' @param weights vector of weights for each feature, if null then is equally one
 #' @param lambda1 penalty parameter for smoothness
 #' @param lambda2 penalty parameter for LASSO shrinkage
+#' @param alpha elastic net parameter to split between ridge and LASSO penalty
 #' @param log whether to take log of the values
 #' @param min_scale features whose IQR value smaller than min_scale will be removed
 #' @param verbose Whether to print out details of osqp function, default False
@@ -94,7 +96,8 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, verbose=F
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, log=T,
+deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=0.5,
+                          log=T,
                           min_scale=0.01,
                           verbose=FALSE){
 
@@ -110,6 +113,7 @@ deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, log=
     result <- l2_solve(X=standardized_X, Y=standardized_Y,
                        weights = weights,
                        labels=labels, lambda1=lambda1, lambda2=lambda2,
+                       alpha=alpha,
                        verbose=verbose)
     # } else{
     #     result <- l1_solve(X=standardized_X, Y=standardized_Y,
@@ -127,6 +131,7 @@ deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, log=
 #' @param labels labels of all the training samples
 #' @param lambda1 penalty parameter for smoothness
 #' @param lambda2 penalty parameter for LASSO shrinkage
+#' @param alpha elastic net parameter to split between ridge and LASSO penalty
 #' @param nu stablizing parameter for reweighing features for deconvolution
 #' @param epsilon tolerance value for stoppage of iterations
 #' @param log whether to take log of the values
@@ -137,7 +142,8 @@ deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, log=
 #' @returns Estimated weights and the weighted sum of training labels
 #'
 #' @export
-iter_deconv <- function(X, Y, labels, lambda1=0, lambda2=0, log=T, min_scale=0.01,
+iter_deconv <- function(X, Y, labels, lambda1=0, lambda2=0, alpha=0.5,
+                        log=T, min_scale=0.01,
                         nu=1e-3, epsilon=1e-2,
                         max_iter=20, verbose=FALSE){
 
@@ -156,7 +162,7 @@ iter_deconv <- function(X, Y, labels, lambda1=0, lambda2=0, log=T, min_scale=0.0
     while(j < max_iter){
         print(j)
         result <- l2_solve(X=standardized_X, Y=standardized_Y, labels=labels, weights=feature_weights,
-                                lambda1=lambda1, lambda2=lambda2)
+                                lambda1=lambda1, lambda2=lambda2, alpha=alpha)
         j <- j+1
         new_weights <- result$weights
         mask <- (new_weights > 0) | (weights > 0)
