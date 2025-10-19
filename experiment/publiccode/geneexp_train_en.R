@@ -8,25 +8,26 @@ data_folder <- "experiment/publicdata"
 code_folder <- "experiment/publiccode"
 
 # list all the file names
-files <- list.files(path=data_folder, pattern="*.feather")
+files <- list.files(path=data_folder, pattern="*.rds")
 extract_studyname <- function(filename){
   filename_nosuffix <- strsplit(filename, split="[.]")[[1]][1]
-  study <- gsub("methylation_", "", filename_nosuffix)
+  study <- strsplit(filename_nosuffix, split="[_]")[[1]][2]
   return(study)
 }
-studies <- sapply(files, extract_studyname)
-meta_files <- sprintf("metadata_%s.csv", studies)
+organs <- sapply(files, extract_studyname)
+meta_files <- sprintf("metadata_%s.csv", organs)
+
+source(file.path(code_folder, "en_utils.R"))
 
 
-
-
-fname <- files[1] #TODO: change here
-metaname <- meta_files[1]
-study_name <- studies[1]
+fname <- files[3] #TODO: change here
+metaname <- meta_files[3]
+organ <- organs[3]
 
 metadata <- read.csv(file.path(data_folder, metaname), row.names=1)
-biomarker <- read_feather(file.path(data_folder, fname)) |> as.data.frame()
-rownames(biomarker) <- rownames(metadata)
+biomarker <- readRDS(file.path(data_folder, fname))  |> t()
+rownames(metadata) <- metadata$SRR.ID
+
 
 
 set.seed(2025)
@@ -40,11 +41,12 @@ test_meta <- metadata[test_id, ]
 train_biomarker <- biomarker[train_id, ]
 test_biomarker <- biomarker[test_id, ]
 
-train_ages <- train_meta$age
-test_ages <- test_meta$age
+train_ages <- train_meta$Age
+test_ages <- test_meta$Age
 
 
 scaling_params <- robust_scale(train_biomarker)
+
 
 if(sum(scaling_params$scale_vals < 1e-3) > 0){
 
@@ -69,10 +71,10 @@ test_biomarker_scaled <- scale_transform(value_mat=test_biomarker,
 
 
 
-en_result <- elasticnet(train_data=train_biomarker,
-                         train_labels=train_ages,
+en_result <- en_fit_func(train_data=train_biomarker,
+                         train_ages=train_ages,
                          test_data=test_biomarker,
-                         test_labels=test_ages)
+                         test_ages=test_ages)
 en_coef_df <-  en_result$coefs
 en_pred_df <- en_result$prediction
 en_pred_df_test <- en_pred_df %>% filter(Batch=="Test")
@@ -81,20 +83,18 @@ en_pred_df_test <- en_pred_df %>% filter(Batch=="Test")
 # write.csv(en_pred_df, sprintf("/nfs/turbo/sph-ligen/wangmk/GeneExp_Aging/experiment/prediction/prediction_raw_%s.csv", selected_study_name),
 #           quote=FALSE)
 
-en_result_scaled <- elasticnet(train_data=train_biomarker_scaled,
-                                train_labels=train_ages,
+en_result_scaled <- en_fit_func(train_data=train_biomarker_scaled,
+                                train_ages=train_ages,
                                 test_data=test_biomarker_scaled,
-                                test_labels=test_ages)
+                                test_ages=test_ages)
 
 en_coef_scaled_df <- en_result_scaled$coefs
 en_pred_scaled_df <- en_result_scaled$prediction
 en_pred_scaled_df_test <- en_pred_scaled_df %>% filter(Batch == "Test")
-write.csv(en_coef_scaled_df, file.path(data_folder, "en_model", sprintf("%s_coef.csv", study_name)),
+write.csv(en_coef_scaled_df, file.path(data_folder, "en_model", sprintf("%s_coef.csv", organ)),
           row.names=FALSE, quote=FALSE)
-write.csv(en_pred_scaled_df, file.path(data_folder, "en_model", sprintf("%s_pred.csv", study_name)),
+write.csv(en_pred_scaled_df, file.path(data_folder, "en_model", sprintf("%s_pred.csv", organ)),
           quote=FALSE)
-
-
 
 
 

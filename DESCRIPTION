@@ -15,6 +15,7 @@ Imports:
     Matrix (>= 1.7.0),
     osqp (>= 0.6.3),
     ggplot2 (>= 3.5.1),
+    mgcv (>= 1.9.1),
     glmnet (>= 4.1.8),
 Suggests: 
     rmarkdown (>= 2.11),
