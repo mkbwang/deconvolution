@@ -18,6 +18,8 @@
 #' @export
 l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=0.5, verbose=FALSE){
 
+    X <- X[order(labels), ]
+    labels <- labels[order(labels)]
     nsamples <- nrow(X)
     ngenes <- ncol(X)
 
