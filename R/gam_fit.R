@@ -27,7 +27,10 @@ gam_fit <- function(df, fname, k=10){
 
     TSS <- sum((df$Feature - mean(df$Feature))^2) # total sum of squares
     ESS <- TSS - RSS_gam # explained sum of squares by gam
+
     F_stat <- (ESS/(DOF_gam - 1)) / (RSS_gam/DOF_rss)
+    R2 <- ESS/TSS
+    adjustR2 <- 1 - ((RSS_gam / TSS) * (nrow(df) - 1) / DOF_rss)
 
     pval <- 1-pf(q=F_stat, df1=DOF_gam-1, df2=DOF_rss) # ANOVA F test
 
@@ -38,7 +41,7 @@ gam_fit <- function(df, fname, k=10){
         geom_line(data=pred_df, aes(x=Age, y=Feature), linewidth=1, alpha=0.8, color="blue") +
         labs(x="Age", y=fname, title=sprintf("EDF=%.2f, pval=%.4f", DOF_gam, pval))+
         theme(text = element_text(size = 10))
-    return(list(EDF=DOF_gam, Fstat=F_stat, pval=pval, viz=viz))
+    return(list(EDF=DOF_gam, Fstat=F_stat, R2=R2, adjustR2=adjustR2, pval=pval, viz=viz))
 
 }
 
