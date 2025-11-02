@@ -128,7 +128,7 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-4, 4, 1))){
     EDF <- sum(diag(H_mat))
     sigma_hat2 <- sum(resids^2) / (N-EDF)
 
-    pred_se <- diag(sigma_hat2 * (H_mat %*% H_mat))
+    pred_se <- sqrt(diag(sigma_hat2 * (H_mat %*% H_mat)) + sigma_hat2)
 
     output <- list(x=x, g_hat=g_hat, gamma_hat=gamma_hat, sigma_hat2=sigma_hat2, EDF=EDF,
                    y_hat=y_hat, se=pred_se, proj_mat=proj_mat, alpha=best_alpha)
@@ -139,4 +139,28 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-4, 4, 1))){
 }
 
 
+#' predict mean values and standard errors for given input independent variable values
+#'
+#' @param t vector of input values
+#' @param fitted_result a list that contains x (knots of spline), g_hat (values at each knot), sigma_hat2 (estimated random error variance),
+#' proj_mat (used for calculating prediction error)
+predict_cspline <- function(t, fitted_result){
+
+    x <- fitted_result$x
+    g_hat <- fitted_result$g_hat
+    sigma_hat2 <- fitted_result$sigma_hat2
+    proj_mat <- fitted_result$proj_mat
+
+    T_mat <- dmat_utils(t=t, x=x)
+    B_mat <- cspline_utils(knots=x)$B
+    U_mat <- T_mat %*% B_mat
+
+    y_hat <- U_mat %*% g_hat # predicted value
+
+    H_mat <- U_mat %*% proj_mat
+    sigma2_pred <- diag(sigma_hat2 * (H_mat %*% t(H_mat))) + sigma_hat2
+    se_pred <- sqrt(sigma2_pred) # standard error
+    return(list(y_hat=y_hat, se_pred=se_pred))
+
+}
 
