@@ -78,7 +78,7 @@ dmat_utils <- function(t, x){
 #' @param y observed values
 #' @param x knots
 #' @param alphas penalty parameters to choose from
-fit_cspline <- function(t, y, x, alphas=c(2^seq(-4, 4, 1))){
+fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
 
     N <- length(t)
     knots_utils <-cspline_utils(knots=x)
@@ -126,15 +126,17 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-4, 4, 1))){
     resids <- y_hat - y
 
     EDF <- sum(diag(H_mat))
-    sigma_hat2 <- sum(resids^2) / (N-EDF)
+    RSS <- sum(resids^2)
+    TSS <- sum((y - mean(y))^2)
+    ESS <- TSS - RSS
+    sigma_hat2 <- RSS / (N-EDF)
+    F_stat <- (ESS/(EDF-1)) / sigma_hat2
+    P_value <- 1 - pf(q=F_stat, df1=EDF-1, df2=N-EDF)
 
     pred_se <- sqrt(diag(sigma_hat2 * (H_mat %*% H_mat)) + sigma_hat2)
 
     output <- list(x=x, g_hat=g_hat, gamma_hat=gamma_hat, sigma_hat2=sigma_hat2, EDF=EDF,
-                   y_hat=y_hat, se=pred_se, proj_mat=proj_mat, alpha=best_alpha)
-
-    # TODO: prediction error is E(Var(Y)) + Var(E(Y))
-    # TODO:
+                   Fstat=F_stat, pval=P_value, y_hat=y_hat, se=pred_se, proj_mat=proj_mat, alpha=best_alpha)
 
 }
 
