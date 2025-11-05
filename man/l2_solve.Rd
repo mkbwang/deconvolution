@@ -11,8 +11,9 @@ l2_solve(
   weights = NULL,
   lambda1 = 0,
   lambda2 = 0,
-  alpha = 0.5,
-  verbose = FALSE
+  alpha = 1,
+  verbose = FALSE,
+  sum_constraint = F
 )
 }
 \arguments{
@@ -31,6 +32,8 @@ l2_solve(
 \item{alpha}{elastic net parameter to split between ridge and LASSO penalty}
 
 \item{verbose}{Whether to print out details of osqp function, default False}
+
+\item{sum_constraint}{Whether to have the sum to one constraint, default FALSE}
 }
 \value{
 Estimated weights and the weighted sum of training labels

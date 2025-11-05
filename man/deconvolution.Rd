@@ -11,9 +11,11 @@ deconvolution(
   weights = NULL,
   lambda1 = 0,
   lambda2 = 0,
-  alpha = 0.5,
+  alpha = 1,
   log = T,
-  min_scale = 0.01,
+  min_scale = 0,
+  standardize = TRUE,
+  sum_constraint = FALSE,
   verbose = FALSE
 )
 }
@@ -35,6 +37,10 @@ deconvolution(
 \item{log}{whether to take log of the values}
 
 \item{min_scale}{features whose IQR value smaller than min_scale will be removed}
+
+\item{standardize}{whether to standardize the feature values among the training reference samples, by default true}
+
+\item{sum_constraint}{Whether to have the sum to one constraint, default FALSE}
 
 \item{verbose}{Whether to print out details of osqp function, default False}
 }

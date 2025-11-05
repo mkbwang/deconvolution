@@ -39,7 +39,6 @@ cspline_utils <- function(knots){
 
 
 
-# TODO: construct design matrix based on the input data
 #' Design matrix for regression given the knots
 #'
 #' @param t input independent variable values vector
@@ -160,7 +159,7 @@ predict_cspline <- function(t, fitted_result){
     y_hat <- U_mat %*% g_hat # predicted value
 
     H_mat <- U_mat %*% proj_mat
-    sigma2_pred <- diag(sigma_hat2 * (H_mat %*% t(H_mat))) + sigma_hat2
+    sigma2_pred <- diag(sigma_hat2 * (H_mat %*% t(H_mat)))#  + sigma_hat2
     se_pred <- sqrt(sigma2_pred) # standard error
     return(list(y_hat=y_hat, se_pred=se_pred))
 

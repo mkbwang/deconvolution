@@ -10,13 +10,15 @@
 #' @param lambda2 penalty parameter for LASSO shrinkage
 #' @param alpha elastic net parameter to split between ridge and LASSO penalty
 #' @param verbose Whether to print out details of osqp function, default False
+#' @param sum_constraint Whether to have the sum to one constraint, default FALSE
 #'
 #' @returns Estimated weights and the weighted sum of training labels
 #'
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=0.5, verbose=FALSE){
+l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1, verbose=FALSE,
+                     sum_constraint=F){
 
     X <- X[order(labels), ]
     labels <- labels[order(labels)]
@@ -45,14 +47,21 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=0.5
     l_0 <- rep(0, nsamples)
     u_0 <- rep(Inf, nsamples)
 
-    ## sum to one
-    # A_1 <- rep(1, nsamples)
-    # l_1 <- 1
-    # u_1 <- 1
+    # sum to one
+    A_1 <- rep(1, nsamples)
+    l_1 <- 1
+    u_1 <- 1
 
-    A_mat <- Matrix(A_0, sparse=T)
-    l_vec <- l_0
-    u_vec <- u_0
+    if (sum_constraint){
+        A_mat <- Matrix(rbind(A_0, A_1), sparse=T)
+        l_vec <- c(l_0, l_1)
+        u_vec <- c(u_0, u_1)
+    } else{
+        A_mat <- Matrix(A_0, sparse=T)
+        l_vec <- l_0
+        u_vec <- u_0
+    }
+
 
     settings <- osqpSettings(alpha = 1.0, verbose=verbose)
     model <- osqp(P=Pmat, q=qvec, A=A_mat, l=l_vec, u=u_vec,
@@ -92,29 +101,39 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=0.5
 #' @param log whether to take log of the values
 #' @param min_scale features whose IQR value smaller than min_scale will be removed
 #' @param verbose Whether to print out details of osqp function, default False
+#' @param standardize whether to standardize the feature values among the training reference samples, by default true
+#' @param sum_constraint Whether to have the sum to one constraint, default FALSE
 #'
 #' @returns Estimated weights and the weighted sum of training labels
 #'
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=0.5,
+deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1,
                           log=T,
-                          min_scale=0.01,
+                          min_scale=0,
+                          standardize=TRUE,
+                          sum_constraint=FALSE,
                           verbose=FALSE){
+    if (standardize){
+        preprocessed_data <- preprocess(X=X, Y=Y,
+                                        takelog=log,
+                                        min_scale=min_scale)
 
-    preprocessed_data <- preprocess(X=X, Y=Y,
-                                    takelog=log,
-                                    min_scale=min_scale)
+        processed_X <- preprocessed_data$normalized_X
+        processed_Y <- preprocessed_data$normalized_Y
+    } else{
+        processed_X <- as.matrix(X)
+        processed_Y <- as.matrix(Y)
+    }
 
-    standardized_X <- preprocessed_data$normalized_X
-    standardized_Y <- preprocessed_data$normalized_Y
 
     # if (type == "l2"){
-    result <- l2_solve(X=standardized_X, Y=standardized_Y,
+    result <- l2_solve(X=processed_X, Y=processed_Y,
                        weights = weights,
                        labels=labels, lambda1=lambda1, lambda2=lambda2,
                        alpha=alpha,
+                       sum_constraint = sum_constraint,
                        verbose=verbose)
     # } else{
     #     result <- l1_solve(X=standardized_X, Y=standardized_Y,
@@ -125,70 +144,53 @@ deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alph
 }
 
 
-#' Iterative deconvolution based on l1 or l2 loss
+
+#' iter_deconv <- function(X, Y, labels, lambda1=0, lambda2=0, alpha=0.5,
+#'                         log=T, min_scale=0.01,
+#'                         nu=1e-3, epsilon=1e-2,
+#'                         max_iter=20, verbose=FALSE){
 #'
-#' @param X matrix of training data (nsample * nfeature)
-#' @param Y vector of test data
-#' @param labels labels of all the training samples
-#' @param lambda1 penalty parameter for smoothness
-#' @param lambda2 penalty parameter for LASSO shrinkage
-#' @param alpha elastic net parameter to split between ridge and LASSO penalty
-#' @param nu stablizing parameter for reweighing features for deconvolution
-#' @param epsilon tolerance value for stoppage of iterations
-#' @param log whether to take log of the values
-#' @param min_scale features whose IQR value smaller than min_scale will be removed
-#' @param max_iter maximum number of iterations
-#' @param verbose Whether to print out details of osqp function, default False
 #'
-#' @returns Estimated weights and the weighted sum of training labels
+#'     weights <- rep(0, length(labels))
+#'     normalized_weights <- rep(0, length(labels))
 #'
-#' @export
-iter_deconv <- function(X, Y, labels, lambda1=0, lambda2=0, alpha=0.5,
-                        log=T, min_scale=0.01,
-                        nu=1e-3, epsilon=1e-2,
-                        max_iter=20, verbose=FALSE){
-
-
-    weights <- rep(0, length(labels))
-    normalized_weights <- rep(0, length(labels))
-
-    preprocessed_data <- preprocess(X=X, Y=Y,
-                                    takelog=log,
-                                    min_scale=min_scale)
-    standardized_X <- preprocessed_data$normalized_X
-    standardized_Y <- preprocessed_data$normalized_Y
-    feature_weights <- rep(1, length(standardized_Y))
-
-    j <- 0
-    while(j < max_iter){
-        print(j)
-        result <- l2_solve(X=standardized_X, Y=standardized_Y, labels=labels, weights=feature_weights,
-                                lambda1=lambda1, lambda2=lambda2, alpha=alpha)
-        j <- j+1
-        new_weights <- result$weights
-        mask <- (new_weights > 0) | (weights > 0)
-        new_normalized_weights <- result$normalized_weights
-        new_top_indices <- order(new_weights, decreasing=T)[1:min(5, length(labels))]
-
-        total_change <- sum(abs(new_normalized_weights - normalized_weights))
-        print(total_change)
-        print(new_top_indices)
-        if (total_change < epsilon) break
-        weights <- new_weights
-        normalized_weights <- new_normalized_weights
-        top_indices <- new_top_indices
-
-        resids <- result$resids
-        feature_weights <- 1/(nu + resids^2)
-        feature_weights <- feature_weights / median(feature_weights)
-    }
-
-    label_estim <- sum(normalized_weights * labels)
-
-    output <- list(weights=weights, normalized_weights=normalized_weights,
-                   estim=label_estim, num_iter=j)
-
-}
+#'     preprocessed_data <- preprocess(X=X, Y=Y,
+#'                                     takelog=log,
+#'                                     min_scale=min_scale)
+#'     standardized_X <- preprocessed_data$normalized_X
+#'     standardized_Y <- preprocessed_data$normalized_Y
+#'     feature_weights <- rep(1, length(standardized_Y))
+#'
+#'     j <- 0
+#'     while(j < max_iter){
+#'         print(j)
+#'         result <- l2_solve(X=standardized_X, Y=standardized_Y, labels=labels, weights=feature_weights,
+#'                                 lambda1=lambda1, lambda2=lambda2, alpha=alpha)
+#'         j <- j+1
+#'         new_weights <- result$weights
+#'         mask <- (new_weights > 0) | (weights > 0)
+#'         new_normalized_weights <- result$normalized_weights
+#'         new_top_indices <- order(new_weights, decreasing=T)[1:min(5, length(labels))]
+#'
+#'         total_change <- sum(abs(new_normalized_weights - normalized_weights))
+#'         print(total_change)
+#'         print(new_top_indices)
+#'         if (total_change < epsilon) break
+#'         weights <- new_weights
+#'         normalized_weights <- new_normalized_weights
+#'         top_indices <- new_top_indices
+#'
+#'         resids <- result$resids
+#'         feature_weights <- 1/(nu + resids^2)
+#'         feature_weights <- feature_weights / median(feature_weights)
+#'     }
+#'
+#'     label_estim <- sum(normalized_weights * labels)
+#'
+#'     output <- list(weights=weights, normalized_weights=normalized_weights,
+#'                    estim=label_estim, num_iter=j)
+#'
+#' }
 
 
 
