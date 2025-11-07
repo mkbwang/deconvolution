@@ -124,6 +124,67 @@ ispline_basis_setup <- function(minval, maxval, xvals, nknots=11){
 
 
 
+#' Set up bases to set up probability where there is only one peak and monotonically decrease otherwise
+#' @param labels labels where weights are calculated
+#' @param peak location where weights become the largest
+#' @returns a list with the monotone bases
+#' @export
+monotone_bases <- function(labels, peak){
+
+    labels_withpeak <- c(labels, peak)
+
+    # first set up bases for labels smaller than or equal to peak
+    n_labels_l <- sum(labels_withpeak <= peak)
+    if (n_labels_l < 10){
+        # use step functions
+        unique_labels_l <- unique(labels_withpeak[labels_withpeak <= peak]) |> sort()
+        l_bases <- matrix(0, ncol=length(unique_labels_l), nrow=length(labels_withpeak))
+        # step function bases
+        for (j in 1:length(unique_labels_l)){
+            l_bases[, j] <- as.integer((labels_withpeak >= unique_labels_l[j]) & (labels_withpeak <= peak))
+        }
+    } else{
+        # ispline bases and a constant basis
+        nknots <- floor(n_labels_l/3)+1
+        min_knot <- min(labels_withpeak)
+        max_knot <- peak
+        l_bases <- ispline_basis_setup(minval=min_knot, maxval=max_knot,
+                                       xvals=labels_withpeak, nknots=nknots)
+        l_bases <- cbind(rep(1, length(labels_withpeak)), l_bases)
+        l_bases[labels_withpeak > peak, ] <- 0
+    }
+    l_bases <- l_bases - 0.5 * (labels_withpeak == peak)
+    n_l_bases <- ncol(l_bases)
+
+    # set up the bases for labels bigger than or equal to peak
+    n_labels_g <- sum(labels_withpeak >= peak)
+    if (n_labels_g < 10){
+        # use step functions
+        unique_labels_g <- unique(labels_withpeak[labels_withpeak >= peak]) |> sort()
+        g_bases <- matrix(0, ncol=length(unique_labels_g), nrow=length(labels_withpeak))
+        # step function bases
+        for (j in 1:length(unique_labels_g)){
+            g_bases[, j] <- as.integer((labels_withpeak >= peak) & (labels_withpeak <= unique_labels_g[j]))
+        }
+        # values at the labels equal to peak needs to be halved so that
+    } else{
+        # ispline bases and a constant basis
+        nknots <- floor(n_labels_g / 3)+1
+        min_knot <- peak
+        max_knot <- max(labels_withpeak)
+        g_bases <- 1 - ispline_basis_setup(minval=min_knot, maxval=max_knot,
+                                           xvals=labels_withpeak, nknots=nknots)
+        g_bases <- cbind(rep(1, length(labels_withpeak)), g_bases)
+        g_bases[labels_withpeak < peak, ] <- 0
+    }
+    g_bases <- g_bases - 0.5 * (labels_withpeak == peak)
+    n_g_bases <- ncol(g_bases)
+
+    return(list(l_bases=l_bases, g_bases=g_bases, n_l_bases=n_l_bases,
+                n_g_bases=n_g_bases, labels=labels, peak=peak))
+
+}
+
 
 #' Deconvolution where the position with maximum weight is predetermined
 #'
@@ -166,55 +227,13 @@ deconvolution_fixed_peak <- function(X, Y, weights=NULL, labels, log=T, min_scal
     }
 
     standardized_X_withpeak <- rbind(standardized_X, rep(0, ncol(standardized_X)))
-    labels_withpeak <- c(labels, peak)
 
+    bases <- monotone_bases(labels, peak)
+    n_l_bases <- bases$n_l_bases
+    n_g_bases <- bases$n_g_bases
+    l_bases <- bases$l_bases
+    g_bases <- bases$g_bases
 
-    # first set up bases for labels smaller than or equal to peak
-    n_labels_l <- sum(labels_withpeak <= peak)
-    if (n_labels_l < 10){
-        # use step functions
-        unique_labels_l <- unique(labels_withpeak[labels_withpeak <= peak]) |> sort()
-        l_bases <- matrix(0, ncol=length(unique_labels_l), nrow=length(labels_withpeak))
-        # step function bases
-        for (j in 1:length(unique_labels_l)){
-            l_bases[, j] <- as.integer((labels_withpeak >= unique_labels_l[j]) & (labels_withpeak <= peak))
-        }
-    } else{
-        # ispline bases and a constant basis
-        nknots <- floor(n_labels_l/3)+1
-        min_knot <- min(labels_withpeak)
-        max_knot <- peak
-        l_bases <- ispline_basis_setup(minval=min_knot, maxval=max_knot,
-                                       xvals=labels_withpeak, nknots=nknots)
-        l_bases <- cbind(rep(1, length(labels_withpeak)), l_bases)
-        l_bases[labels_withpeak > peak, ] <- 0
-    }
-    l_bases <- l_bases - 0.5 * (labels_withpeak == peak)
-    n_l_bases <- ncol(l_bases)
-
-    # set up the bases for labels bigger than or equal to peak
-    n_labels_g <- sum(labels_withpeak >= peak)
-    if (n_labels_g < 10){
-        # use step functions
-        unique_labels_g <- unique(labels_withpeak[labels_withpeak >= peak]) |> sort()
-        g_bases <- matrix(0, ncol=length(unique_labels_g), nrow=length(labels_withpeak))
-        # step function bases
-        for (j in 1:length(unique_labels_g)){
-            g_bases[, j] <- as.integer((labels_withpeak >= peak) & (labels_withpeak <= unique_labels_g[j]))
-        }
-        # values at the labels equal to peak needs to be halved so that
-    } else{
-        # ispline bases and a constant basis
-        nknots <- floor(n_labels_g / 3)+1
-        min_knot <- peak
-        max_knot <- max(labels_withpeak)
-        g_bases <- 1 - ispline_basis_setup(minval=min_knot, maxval=max_knot,
-                                       xvals=labels_withpeak, nknots=nknots)
-        g_bases <- cbind(rep(1, length(labels_withpeak)), g_bases)
-        g_bases[labels_withpeak < peak, ] <- 0
-    }
-    g_bases <- g_bases - 0.5 * (labels_withpeak == peak)
-    n_g_bases <- ncol(g_bases)
 
     equality_constraints <- c(rep(1, n_l_bases), rep(-1, n_g_bases))
 
