@@ -77,6 +77,7 @@ dmat_utils <- function(t, x){
 #' @param y observed values
 #' @param x knots
 #' @param alphas penalty parameters to choose from
+#' @export
 fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
 
     N <- length(t)
@@ -145,6 +146,7 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
 #' @param t vector of input values
 #' @param fitted_result a list that contains x (knots of spline), g_hat (values at each knot), sigma_hat2 (estimated random error variance),
 #' proj_mat (used for calculating prediction error)
+#' @export
 predict_cspline <- function(t, fitted_result){
 
     x <- fitted_result$x
