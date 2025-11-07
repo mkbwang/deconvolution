@@ -138,6 +138,8 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
     output <- list(x=x, g_hat=g_hat, gamma_hat=gamma_hat, sigma_hat2=sigma_hat2, EDF=EDF,
                    Fstat=F_stat, pval=P_value, y_hat=y_hat, se=pred_se, proj_mat=proj_mat, alpha=best_alpha)
 
+    return(output)
+
 }
 
 
