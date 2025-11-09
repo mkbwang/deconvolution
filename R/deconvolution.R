@@ -4,6 +4,8 @@
 #'
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
+#' @param XXt if XXt provided, X is ignored
+#' @param XY if XY provided, X and Y are ignored
 #' @param labels labels of all the training samples
 #' @param weights vector of weights for each feature, if null then is equally one
 #' @param lambda1 penalty parameter for smoothness
@@ -17,22 +19,27 @@
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1, verbose=FALSE,
+l2_solve <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1, verbose=FALSE,
                      sum_constraint=F){
 
-    X <- X[order(labels), ]
-    labels <- labels[order(labels)]
-    nsamples <- nrow(X)
-    ngenes <- ncol(X)
+    nsamples <- length(labels)
+    if (!is.null(X) & !is.null(Y)){
+        if (is.null(weights)){
+            weights_mat <- diag(length(Y))
+        } else{
+            weights_mat <- diag(weights)
+        }
 
-    if (is.null(weights)){
-        weights_mat <- diag(length(Y))
+        XXt <- X %*% weights_mat %*% t(X)
+        XY <- X %*% weights_mat  %*% Y
+    } else if (!is.null(XXt) & !is.null(XY)){
+        XXt <- XXt
+        XY <- XY
     } else{
-        weights_mat <- diag(weights)
+        stop("X and Y must be provided or XXt or XY must be provided")
     }
 
-    XXt <- X %*% weights_mat %*% t(X)
-    XY <- X %*% weights_mat  %*% Y
+
 
     # penalty based on differences between ages
     omega <- penalty_smooth(labels=labels, lambda=lambda1)
@@ -71,9 +78,6 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1, 
     solution <- res$x
     solution[solution < 0] <- 0
 
-    fitted_Y <- as.vector(t(X) %*% solution)
-    resids <- fitted_Y - Y
-
     normalized_solution <- solution/sum(solution)
     # trim very small weights to zero
     # trim_indices <- which(normalized_solution < 1/nsamples/10)
@@ -83,7 +87,7 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1, 
     label_estim <- sum(normalized_solution*labels)
 
     return(list(weights=solution, normalized_weights=normalized_solution,
-                estim=label_estim, resids=resids))
+                estim=label_estim))
 
 }
 
@@ -93,6 +97,8 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1, 
 #'
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
+#' @param XXt if XXt provided, X is ignored
+#' @param XY if XY provided, X and Y are ignored
 #' @param labels labels of all the training samples
 #' @param weights vector of weights for each feature, if null then is equally one
 #' @param lambda1 penalty parameter for smoothness
@@ -109,37 +115,48 @@ l2_solve <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1, 
 #' @importFrom Matrix Matrix
 #' @importFrom osqp osqp osqpSettings
 #' @export
-deconvolution <- function(X, Y, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1,
+deconvolution <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1,
                           log=T,
                           min_scale=0,
                           standardize=TRUE,
                           sum_constraint=FALSE,
                           verbose=FALSE){
-    if (standardize){
-        preprocessed_data <- preprocess(X=X, Y=Y,
-                                        takelog=log,
-                                        min_scale=min_scale)
+    if (!is.null(X) & !is.null(Y)){
+        if (standardize){
+            preprocessed_data <- preprocess(X=X, Y=Y,
+                                            takelog=log,
+                                            min_scale=min_scale)
 
-        processed_X <- preprocessed_data$normalized_X
-        processed_Y <- preprocessed_data$normalized_Y
+            processed_X <- preprocessed_data$normalized_X
+            processed_Y <- preprocessed_data$normalized_Y
+        } else{
+            processed_X <- as.matrix(X)
+            processed_Y <- as.matrix(Y)
+        }
+
+
+
+        result <- l2_solve(X=processed_X, Y=processed_Y,
+                           weights = weights,
+                           labels=labels, lambda1=lambda1, lambda2=lambda2,
+                           alpha=alpha,
+                           sum_constraint = sum_constraint,
+                           verbose=verbose)
+    } else if (!is.null(XXt) & !is.null(XY)){
+
+        result <- l2_solve(XXt=XXt, XY=XY,
+                           weights = weights,
+                           labels=labels, lambda1=lambda1, lambda2=lambda2,
+                           alpha=alpha,
+                           sum_constraint = sum_constraint,
+                           verbose=verbose)
+
     } else{
-        processed_X <- as.matrix(X)
-        processed_Y <- as.matrix(Y)
+        stop("X and Y must be provided or XXt or XY must be provided")
     }
 
 
-    # if (type == "l2"){
-    result <- l2_solve(X=processed_X, Y=processed_Y,
-                       weights = weights,
-                       labels=labels, lambda1=lambda1, lambda2=lambda2,
-                       alpha=alpha,
-                       sum_constraint = sum_constraint,
-                       verbose=verbose)
-    # } else{
-    #     result <- l1_solve(X=standardized_X, Y=standardized_Y,
-    #                        labels=labels, p0=p0, p1=p1,
-    #                        verbose=verbose)
-    # }
+
     return(result)
 }
 
