@@ -5,8 +5,10 @@
 \title{deconvolution based on l1 or l2 loss}
 \usage{
 deconvolution(
-  X,
-  Y,
+  X = NULL,
+  Y = NULL,
+  XXt = NULL,
+  XY = NULL,
   labels,
   weights = NULL,
   lambda1 = 0,
@@ -23,6 +25,10 @@ deconvolution(
 \item{X}{matrix of training data (nsample * nfeature)}
 
 \item{Y}{vector of test data}
+
+\item{XXt}{if XXt provided, X is ignored}
+
+\item{XY}{if XY provided, X and Y are ignored}
 
 \item{labels}{labels of all the training samples}
 
