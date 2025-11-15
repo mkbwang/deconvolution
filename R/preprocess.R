@@ -8,13 +8,14 @@ if (getRversion() >= "2.15.1") {
 
 #' Calculate median value and IQR of each feature
 #' @param value_mat data matrix (nsample * nfeature)
+#' @param margin calculate scale for each row (1) or each column (2)
 #' @returns median value vector and scale vector
 #'
 #' @importFrom stats quantile
 #' @export
-robust_scale <- function(value_mat){
+robust_scale <- function(value_mat, margin=1){
     # take median and report scale based on IQR
-    quantile_vals <- apply(value_mat, MARGIN=2, FUN=function(vec){
+    quantile_vals <- apply(value_mat, MARGIN=margin, FUN=function(vec){
         quantile(vec, c(0.25, 0.5, 0.75))
     })
 

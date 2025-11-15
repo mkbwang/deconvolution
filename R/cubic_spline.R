@@ -163,9 +163,70 @@ predict_cspline <- function(t, fitted_result){
     y_hat <- U_mat %*% g_hat # predicted value
 
     H_mat <- U_mat %*% proj_mat
-    sigma2_pred <- diag(sigma_hat2 * (H_mat %*% t(H_mat)))#  + sigma_hat2
+    sigma2_pred <- diag(sigma_hat2 * (H_mat %*% t(H_mat))) + sigma_hat2
     se_pred <- sqrt(sigma2_pred) # standard error
     return(list(y_hat=y_hat, se_pred=se_pred))
 
 }
+
+
+
+
+
+
+#' Fit cubic spline to all the features
+#'
+#' @param input_pheno continuous phenotype values of training data
+#' @param input_marker_value marker values with dimension nfeature * nsample
+#' @param output_pheno selected phenotype values for prediction of mean and standard error
+#'
+#' @returns list of spline fitting result and predicted mean/standard error
+#' @export
+fit_data <- function(input_pheno, input_marker_value, output_pheno){
+
+    # confirm that the phenotype values for prediction fall in the range of the training data values
+    stopifnot(all(output_pheno >= min(input_pheno)) & all(output_pheno <= max(input_pheno)))
+
+    feature_names <- rownames(input_marker_value)
+
+    # get EDF, p values and F stats
+    feature_spline_summary <- data.frame(Feature=feature_names,
+                                         EDF=0,
+                                         Fstat=0,
+                                         Pval=0)
+
+    # estimated mean and standard error values for each feature for each output pheno
+    output_mean_mat <- matrix(0, nrow=length(feature_names), ncol=length(output_pheno))
+    output_se_mat <- matrix(0, nrow=length(feature_names), ncol=length(output_pheno))
+    rownames(output_mean_mat) <- rownames(output_se_mat) <- rownames(input_marker_value)
+
+    # knot selection
+    unique_pheno <- sort(unique(input_pheno))
+    indices <- c(seq(1, length(unique_pheno), 2), length(unique_pheno)) |> unique() # pick half of the unique values
+    knots <- unique_pheno[indices] |> round() |> unique() # round to integers
+
+    # fit csplines for each feature
+    for (j in 1:length(feature_names)){
+
+        feature_values <- input_marker_value[j, ]
+        result_fit <- fit_cspline(t=input_pheno, y=feature_values, x=knots)
+        feature_spline_summary$EDF[j] <- result_fit$EDF
+        feature_spline_summary$Fstat[j] <- result_fit$Fstat
+        feature_spline_summary$Pval[j] <- result_fit$pval
+
+        prediction_output <- predict_cspline(t=output_pheno,
+                                       fitted_result=result_fit)
+        output_mean_mat[j, ] <- prediction_output$y_hat
+        output_se_mat[j, ] <- prediction_output$se_pred
+
+    }
+
+    return(list(spline_summary=feature_spline_summary,
+                output_mean=output_mean_mat,
+                output_se=output_se_mat,
+                output_pheno=output_pheno))
+
+}
+
+
 
