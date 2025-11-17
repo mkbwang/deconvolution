@@ -131,6 +131,8 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
         RSS <- sum(resids^2)
         TSS <- sum((y - mean(y))^2)
         ESS <- TSS - RSS
+        R2 <- ESS/TSS
+        adjusted_R2 <- 1 - (1 - R2) * (N-1) / (N - EDF)
         sigma_hat2 <- RSS / (N-EDF)
         F_stat <- (ESS/(EDF-1)) / sigma_hat2
         P_value <- 1 - pf(q=F_stat, df1=EDF-1, df2=N-EDF)
@@ -159,7 +161,8 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
 
     output <- list(x=x, t=original_t, y=original_y, exclusion=exclusion_mask,
                    g_hat=g_hat, gamma_hat=gamma_hat, sigma_hat2=sigma_hat2, EDF=EDF,
-                   Fstat=F_stat, pval=P_value, y_hat=y_hat, se=pred_se, proj_mat=proj_mat, alpha=best_alpha)
+                   adjustedR2 = adjusted_R2, Fstat=F_stat,
+                   pval=P_value, y_hat=y_hat, se=pred_se, proj_mat=proj_mat, alpha=best_alpha)
 
     return(output)
 
@@ -216,6 +219,7 @@ fit_data <- function(input_pheno, input_marker_value, output_pheno){
     feature_spline_summary <- data.frame(Feature=feature_names,
                                          EDF=0,
                                          Fstat=0,
+                                         adjustedR2=0,
                                          Pval=0,
                                          NumOutlier=0)
 
@@ -242,6 +246,7 @@ fit_data <- function(input_pheno, input_marker_value, output_pheno){
         input_outlier_mat[j, ] <- result_fit$exclusion
         feature_spline_summary$EDF[j] <- result_fit$EDF
         feature_spline_summary$Fstat[j] <- result_fit$Fstat
+        feature_spline_summary$adjustedR2[j] <- result_fit$adjustedR2
         feature_spline_summary$Pval[j] <- result_fit$pval
         feature_spline_summary$NumOutlier[j] <- sum(result_fit$exclusion)
 
