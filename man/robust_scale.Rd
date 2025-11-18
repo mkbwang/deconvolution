@@ -4,10 +4,12 @@
 \alias{robust_scale}
 \title{Calculate median value and IQR of each feature}
 \usage{
-robust_scale(value_mat)
+robust_scale(value_mat, margin = 1)
 }
 \arguments{
 \item{value_mat}{data matrix (nsample * nfeature)}
+
+\item{margin}{calculate scale for each row (1) or each column (2)}
 }
 \value{
 median value vector and scale vector
