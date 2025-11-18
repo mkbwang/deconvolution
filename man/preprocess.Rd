@@ -4,7 +4,7 @@
 \alias{preprocess}
 \title{take log and normalize both training data and test data}
 \usage{
-preprocess(X, Y, takelog = T, min_scale = 0.01)
+preprocess(X, Y, takelog = T, margin = 1, min_scale = 0.01)
 }
 \arguments{
 \item{X}{matrix of training data (nsample * nfeature)}
@@ -12,6 +12,8 @@ preprocess(X, Y, takelog = T, min_scale = 0.01)
 \item{Y}{vector of test data}
 
 \item{takelog}{whether to take log of X and Y before normalization}
+
+\item{margin}{calculate scale for each row (1) or each column (2)}
 
 \item{min_scale}{features whose IQR value smaller than min_scale will be removed}
 }

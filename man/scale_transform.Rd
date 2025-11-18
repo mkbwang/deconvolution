@@ -4,7 +4,7 @@
 \alias{scale_transform}
 \title{Robust scaling of a matrix or a vector}
 \usage{
-scale_transform(value_mat, median_vals, scale_vals)
+scale_transform(value_mat, median_vals, scale_vals, margin = 1)
 }
 \arguments{
 \item{value_mat}{data matrix (nsample*nfeature) or vector (nfeature)}
@@ -12,6 +12,8 @@ scale_transform(value_mat, median_vals, scale_vals)
 \item{median_vals}{median value vector (nfeature)}
 
 \item{scale_vals}{scale value vector (nfeature)}
+
+\item{margin}{calculate scale for each row (1) or each column (2)}
 }
 \description{
 Robust scaling of a matrix or a vector
