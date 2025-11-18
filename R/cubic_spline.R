@@ -235,7 +235,7 @@ fit_data <- function(input_pheno, input_marker_value, output_pheno){
 
     # knot selection
     unique_pheno <- sort(unique(input_pheno))
-    indices <- c(seq(1, length(unique_pheno), 2), length(unique_pheno)) |> unique() # pick half of the unique values
+    indices <- c(seq(1, length(unique_pheno), 3), length(unique_pheno)) |> unique() # pick half of the unique values
     knots <- unique_pheno[indices] |> round() |> unique() # round to integers
 
     # fit csplines for each feature
@@ -258,6 +258,7 @@ fit_data <- function(input_pheno, input_marker_value, output_pheno){
     }
 
     return(list(spline_summary=feature_spline_summary,
+                spline_knots=knots,
                 input_outlier=input_outlier_mat,
                 output_mean=output_mean_mat,
                 output_se=output_se_mat,
