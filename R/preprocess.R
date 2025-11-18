@@ -30,26 +30,35 @@ robust_scale <- function(value_mat, margin=1){
 #' @param value_mat data matrix (nsample*nfeature) or vector (nfeature)
 #' @param median_vals median value vector (nfeature)
 #' @param scale_vals scale value vector (nfeature)
+#' @param margin calculate scale for each row (1) or each column (2)
 #' @export
-scale_transform <- function(value_mat, median_vals, scale_vals){
+scale_transform <- function(value_mat, median_vals, scale_vals, margin=1){
+
     if (!is.null(dim(value_mat))){
-        t_scaled_mat <- (t(value_mat) - median_vals) / scale_vals
-        return(t(t_scaled_mat))
+        if (margin == 1){
+            scaled_mat <- (value_mat - median_vals) / scale_vals
+        } else{
+            t_scaled_mat <- (t(value_mat) - median_vals) / scale_vals
+            scaled_mat <- t(t_scaled_mat)
+        }
+        return(scaled_mat)
     } else{
         scaled_vec <- (value_mat - median_vals) / scale_vals
         return(scaled_vec)
     }
+
 }
 
 #' take log and normalize both training data and test data
 #' @param X matrix of training data (nsample * nfeature)
 #' @param Y vector of test data
 #' @param takelog whether to take log of X and Y before normalization
+#' @param margin calculate scale for each row (1) or each column (2)
 #' @param min_scale features whose IQR value smaller than min_scale will be removed
 #' @returns normalized training data and test data
 #'
 #' @export
-preprocess <- function(X, Y, takelog=T, min_scale=0.01){
+preprocess <- function(X, Y, takelog=T, margin=1, min_scale=0.01){
 
     # replace zeros in X with pseudocount
     impute_zero <- function(xvec){
@@ -60,8 +69,8 @@ preprocess <- function(X, Y, takelog=T, min_scale=0.01){
     }
 
     if (takelog){ # take log
-        X <- apply(X, 2, impute_zero) # impute zeros in X
-        minimum_X <- apply(X, 2, min)
+        X <- apply(X, margin, impute_zero) # impute zeros in X
+        minimum_X <- apply(X, margin, min)
         if (sum(Y == 0) > 0){
             Y[Y == 0] <- minimum_X[Y == 0]
         }
@@ -70,19 +79,21 @@ preprocess <- function(X, Y, takelog=T, min_scale=0.01){
     }
 
     # standardize X and Y
-    scaling_params <- robust_scale(X)
+    scaling_params <- robust_scale(X, margin=margin)
     mask <- scaling_params$scale_vals > min_scale
-    X <- X[, mask]
+    X <- ifelse(margin == 1, X[mask, ], X[, mask])
     if (is.null(dim(Y))){
         Y <- Y[mask]
     } else{
-        Y <- Y[, mask]
+        Y <- ifelse(margin == 1, Y[mask, ], Y[, mask])
     }
 
     X_scaled <- scale_transform(X, scaling_params$median_vals[mask],
-                                scaling_params$scale_vals[mask])
+                                scaling_params$scale_vals[mask],
+                                margin=margin)
     Y_scaled <- scale_transform(Y, scaling_params$median_vals[mask],
-                                scaling_params$scale_vals[mask])
+                                scaling_params$scale_vals[mask],
+                                margin=margin)
 
 
     return(list(normalized_X=X_scaled,
