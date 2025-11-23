@@ -43,6 +43,7 @@ cspline_utils <- function(knots){
 #'
 #' @param t input independent variable values vector
 #' @param x vector of knots
+#' @returns a design matrix with number of rows equal to length of t and number of columns equal to (2*nknots-2)
 #' @export
 dmat_utils <- function(t, x){
 
@@ -70,6 +71,69 @@ dmat_utils <- function(t, x){
 }
 
 
+#' Design matrix for regression given the knots (predicting 1st derivative)
+#'
+#' @param t input independent variable values vector
+#' @param x vector of knots
+#' @returns a design matrix with number of rows equal to length of t and number of columns equal to (2*nknots-2)
+#' @export
+dmat_utils_d1 <- function(t, x){
+
+    stopifnot(all(t >= min(x) & t <= max(x)))
+    x <- sort(x)
+    h <- diff(x)
+    K <- length(x)
+
+    # first construct the vector coefficients for values at each knot
+    t_mat_1 <- matrix(t, nrow=length(t), ncol=K-1)
+    mask_1 <- (t(t_mat_1) >= x[1:(K-1)] & t(t_mat_1) < x[2:K])  +
+        (t(t_mat_1) == x[K] & t(t_mat_1) <= x[2:K])
+    matg1 <- rbind( -1 / h * mask_1, 0)
+    matg2 <- rbind(0, 1 / h * mask_1)
+    mat_g <- t(matg1 + matg2)
+
+    # then construct the vector coefficients for values at second order gradients
+    t_mat_2 <- t_mat_1[, 1:(K-2)]
+    mat_gamma <- mask_1[1:(K-2), ] * (-1 / 6 * h[1:(K-2)] + (t(t_mat_2) - x[1 : (K-2)])^2 / (2 * h[1 : (K-2)])) +
+        mask_1[2:(K-1), ] * (-1 / 3 * h[2 : (K-1)] + (t(t_mat_2) - x[2:(K-1)]) - (t(t_mat_2) - x[2:(K-1)])^2 / (2 * h[2:(K-1)]))
+
+    design_mat <- cbind(mat_g, t(mat_gamma))
+
+    return(design_mat)
+
+}
+
+
+#' Design matrix for regression given the knots (predicting 1st derivative)
+#'
+#' @param t input independent variable values vector
+#' @param x vector of knots
+#' @returns a design matrix with number of rows equal to length of t and number of columns equal to (2*nknots-2)
+#' @export
+dmat_utils_d2 <- function(t, x){
+
+    stopifnot(all(t >= min(x) & t <= max(x)))
+    x <- sort(x)
+    h <- diff(x)
+    K <- length(x)
+
+    # first construct the vector coefficients for values at each knot
+    t_mat_1 <- matrix(t, nrow=length(t), ncol=K-1)
+    mask_1 <- (t(t_mat_1) >= x[1:(K-1)] & t(t_mat_1) < x[2:K])  +
+        (t(t_mat_1) == x[K] & t(t_mat_1) <= x[2:K])
+
+    mat_g <- matrix(0, nrow=length(t), ncol=length(x))
+
+    # then construct the vector coefficients for values at second order gradients
+    t_mat_2 <- matrix(t, nrow=length(t), ncol=K-2)
+    mat_gamma <- mask_1[1:(K-2), ] * (t(t_mat_2) - x[1:(K-2)]) / h[1:(K-2)] +
+        mask_1[2:(K-1), ] * (1 - (t(t_mat_2) - x[2:(K-1)]) / h[2:(K-1)])
+
+    design_mat <- cbind(mat_g, t(mat_gamma))
+    return(design_mat)
+
+}
+
 
 #' Fit cubic spline given input training dataframe and knots
 #'
@@ -77,8 +141,9 @@ dmat_utils <- function(t, x){
 #' @param y observed values
 #' @param x knots
 #' @param alphas penalty parameters to choose from
+#' @param exclude_factor if the value of one sample is beyond its estimated mean plus/minus factor*se, then this sample is removed and the spline will be refit again
 #' @export
-fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
+fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1)), exclude_factor=3){
 
     N <- length(t)
     knots_utils <-cspline_utils(knots=x)
@@ -139,7 +204,7 @@ fit_cspline <- function(t, y, x, alphas=c(2^seq(-5, 4, 1))){
 
         pred_se <- sqrt(diag(sigma_hat2 * (H_mat %*% H_mat)) + sigma_hat2)
 
-        outlier_mask <- abs(resids) > 3*pred_se
+        outlier_mask <- abs(resids) > exclude_factor * pred_se
         if (any(outlier_mask)){ # remove outliers and refit if necessary
             t_excluded <- c(t_excluded, t[outlier_mask])
             y_excluded <- c(y_excluded, y[outlier_mask])
@@ -191,7 +256,14 @@ predict_cspline <- function(t, fitted_result){
     H_mat <- U_mat %*% proj_mat
     sigma2_pred <- diag(sigma_hat2 * (H_mat %*% t(H_mat))) + sigma_hat2
     se_pred <- sqrt(sigma2_pred) # standard error
-    return(list(y_hat=y_hat, se_pred=se_pred))
+
+    d1_mat <- dmat_utils_d1(t=t, x=x)
+    d1_hat <- d1_mat %*% B_mat %*% g_hat # first derivative
+
+    d2_mat <- dmat_utils_d2(t=t, x=x)
+    d2_hat <- d2_mat %*% B_mat %*% g_hat # second derivative
+
+    return(list(y_hat=y_hat, se_pred=se_pred, d1_hat=d1_hat, d2_hat=d2_hat))
 
 }
 

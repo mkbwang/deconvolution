@@ -4,7 +4,7 @@
 \alias{fit_cspline}
 \title{Fit cubic spline given input training dataframe and knots}
 \usage{
-fit_cspline(t, y, x, alphas = c(2^seq(-5, 4, 1)))
+fit_cspline(t, y, x, alphas = c(2^seq(-5, 4, 1)), exclude_factor = 3)
 }
 \arguments{
 \item{t}{independent variable values}
@@ -14,6 +14,8 @@ fit_cspline(t, y, x, alphas = c(2^seq(-5, 4, 1)))
 \item{x}{knots}
 
 \item{alphas}{penalty parameters to choose from}
+
+\item{exclude_factor}{if the value of one sample is beyond its estimated mean plus/minus factor*se, then this sample is removed and the spline will be refit again}
 }
 \description{
 Fit cubic spline given input training dataframe and knots
