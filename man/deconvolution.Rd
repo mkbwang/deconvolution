@@ -16,6 +16,7 @@ deconvolution(
   alpha = 1,
   log = T,
   min_scale = 0,
+  scale_margin = 1,
   standardize = TRUE,
   sum_constraint = FALSE,
   verbose = FALSE
@@ -43,6 +44,8 @@ deconvolution(
 \item{log}{whether to take log of the values}
 
 \item{min_scale}{features whose IQR value smaller than min_scale will be removed}
+
+\item{scale_margin}{margin (row 1 or column 2) to normalize the expression matrix X}
 
 \item{standardize}{whether to standardize the feature values among the training reference samples, by default true}
 
