@@ -81,11 +81,20 @@ preprocess <- function(X, Y, takelog=T, margin=1, min_scale=0.01){
     # standardize X and Y
     scaling_params <- robust_scale(X, margin=margin)
     mask <- scaling_params$scale_vals > min_scale
-    X <- ifelse(margin == 1, X[mask, ], X[, mask])
+    if (margin == 1){
+        X <- X[mask, ]
+    } else{# margin == 2
+        X <- X[, mask]
+    }
+
     if (is.null(dim(Y))){
         Y <- Y[mask]
     } else{
-        Y <- ifelse(margin == 1, Y[mask, ], Y[, mask])
+        if (margin == 1){
+            Y <- Y[mask, ]
+        } else{ # margin == 2
+            Y <- Y[, mask]
+        }
     }
 
     X_scaled <- scale_transform(X, scaling_params$median_vals[mask],

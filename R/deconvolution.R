@@ -106,6 +106,7 @@ l2_solve <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NULL, la
 #' @param alpha elastic net parameter to split between ridge and LASSO penalty
 #' @param log whether to take log of the values
 #' @param min_scale features whose IQR value smaller than min_scale will be removed
+#' @param scale_margin margin (row 1 or column 2) to normalize the expression matrix X
 #' @param verbose Whether to print out details of osqp function, default False
 #' @param standardize whether to standardize the feature values among the training reference samples, by default true
 #' @param sum_constraint Whether to have the sum to one constraint, default FALSE
@@ -118,6 +119,7 @@ l2_solve <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NULL, la
 deconvolution <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NULL, lambda1=0, lambda2=0, alpha=1,
                           log=T,
                           min_scale=0,
+                          scale_margin=1,
                           standardize=TRUE,
                           sum_constraint=FALSE,
                           verbose=FALSE){
@@ -125,7 +127,8 @@ deconvolution <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NUL
         if (standardize){
             preprocessed_data <- preprocess(X=X, Y=Y,
                                             takelog=log,
-                                            min_scale=min_scale)
+                                            min_scale=min_scale,
+                                            margin=scale_margin)
 
             processed_X <- preprocessed_data$normalized_X
             processed_Y <- preprocessed_data$normalized_Y
@@ -134,7 +137,10 @@ deconvolution <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NUL
             processed_Y <- as.matrix(Y)
         }
 
-
+        if (scale_margin == 1){
+            processed_X <- t(processed_X) # transpose if genes are rows
+        }
+        processed_Y <- as.vector(processed_Y)
 
         result <- l2_solve(X=processed_X, Y=processed_Y,
                            weights = weights,
@@ -142,6 +148,7 @@ deconvolution <- function(X=NULL, Y=NULL, XXt=NULL, XY=NULL, labels, weights=NUL
                            alpha=alpha,
                            sum_constraint = sum_constraint,
                            verbose=verbose)
+
     } else if (!is.null(XXt) & !is.null(XY)){
 
         result <- l2_solve(XXt=XXt, XY=XY,
