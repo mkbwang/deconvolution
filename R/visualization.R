@@ -47,11 +47,12 @@ viz_predict <- function(truth, predicted, diagonal=TRUE, title=NULL){
 #' @param truth true value
 #' @param exclude which training sample to remove, optional
 #' @param title title of the ggplot
+#' @param size text size, default 10
 #'
 #' @importFrom dplyr group_by %>% arrange summarise
 #' @importFrom ggplot2 ggplot geom_line geom_point scale_x_continuous geom_vline xlab ylab ggtitle theme element_text
 #' @export
-viz_weights <- function(labels, weights, truth=NULL, exclude=NULL, title=NULL){
+viz_weights <- function(labels, weights, truth=NULL, exclude=NULL, title=NULL, size=10){
 
     weights_df <- data.frame(Labels = labels,
                              Weights= weights) %>%
@@ -72,7 +73,7 @@ viz_weights <- function(labels, weights, truth=NULL, exclude=NULL, title=NULL){
         scale_x_continuous(breaks=starting_point$index,
                            labels=as.character(starting_point$Labels)) +
         xlab("Age") + ylab("Weights")+
-        theme(text=element_text(size=10))
+        theme(text=element_text(size=size))
 
     if (!is.null(truth)){
 
