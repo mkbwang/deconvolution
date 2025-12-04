@@ -4,7 +4,14 @@
 \alias{viz_weights}
 \title{Visualize the deconvolution weights}
 \usage{
-viz_weights(labels, weights, truth = NULL, exclude = NULL, title = NULL)
+viz_weights(
+  labels,
+  weights,
+  truth = NULL,
+  exclude = NULL,
+  title = NULL,
+  size = 10
+)
 }
 \arguments{
 \item{labels}{labels of training data}
@@ -16,6 +23,8 @@ viz_weights(labels, weights, truth = NULL, exclude = NULL, title = NULL)
 \item{exclude}{which training sample to remove, optional}
 
 \item{title}{title of the ggplot}
+
+\item{size}{text size, default 10}
 }
 \description{
 Visualize the deconvolution weights
